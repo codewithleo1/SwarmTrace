@@ -68,6 +68,7 @@ async def apply_schema() -> None:
                 output_payload  JSONB,
                 latency_ms      INT,
                 token_usage     JSONB,
+                estimated_cost_usd   NUMERIC(10, 6),
                 created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 

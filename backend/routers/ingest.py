@@ -15,6 +15,20 @@ from database import get_pool
 from fastapi import APIRouter
 from models import IngestRequest
 
+# Groq llama-3.3-70b-versatile pricing (per 1M tokens)
+_INPUT_COST_PER_M  = 0.59
+_OUTPUT_COST_PER_M = 0.79
+
+def _calculate_cost(token_usage: dict | None) -> float | None:
+    """Calculate estimated USD cost from token usage."""
+    if not token_usage:
+        return None
+    prompt     = token_usage.get("prompt_tokens", 0)
+    completion = token_usage.get("completion_tokens", 0)
+    cost = (prompt / 1_000_000 * _INPUT_COST_PER_M) + \
+           (completion / 1_000_000 * _OUTPUT_COST_PER_M)
+    return round(cost, 6)
+
 router = APIRouter()
 
 
@@ -32,12 +46,13 @@ async def ingest(request: IngestRequest):
             """, span.trace_id, span.agent_name if span.parent_span_id is None else "orchestrator")
 
             # Insert the span
+            cost = _calculate_cost(span.token_usage)
             await conn.execute("""
                 INSERT INTO spans (
                     span_id, trace_id, parent_span_id, agent_name,
                     span_type, input_payload, output_payload,
-                    latency_ms, token_usage
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                    latency_ms, token_usage, estimated_cost_usd
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
                 ON CONFLICT (span_id) DO NOTHING
             """,
                 span.span_id,
@@ -49,6 +64,7 @@ async def ingest(request: IngestRequest):
                 json.dumps(span.output_payload),
                 span.latency_ms,
                 json.dumps(span.token_usage) if span.token_usage else None,
+                cost,
             )
 
             # Loop detection — if same sender→receiver pair appears >4 times, flag it

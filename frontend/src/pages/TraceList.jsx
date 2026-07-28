@@ -86,7 +86,7 @@ export default function TraceList() {
                   <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Trace ID</th>
                   <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Root Agent</th>
                   <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Status</th>
-                  <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Latency</th>
+                  <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Cost</th>
                   <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Parent</th>
                   <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">Created</th>
                 </tr>
@@ -103,8 +103,8 @@ export default function TraceList() {
                     </td>
                     <td className="px-4 py-3 text-white/70 capitalize">{t.root_agent}</td>
                     <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                    <td className="px-4 py-3 font-mono text-xs text-white/60">
-                      {t.total_latency_ms ? `${t.total_latency_ms}ms` : '—'}
+                    <td className="px-4 py-3 font-mono text-xs text-green-400">
+                      {t.total_cost_usd ? `$${Number(t.total_cost_usd).toFixed(6)}` : '—'}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-purple-400">
                       {t.parent_trace_id ? `${t.parent_trace_id.slice(0, 8)}...` : '—'}

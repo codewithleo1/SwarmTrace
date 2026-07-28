@@ -70,11 +70,18 @@ export default function TraceDetail() {
         <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_STYLES[trace.status] || ''}`}>
           {trace.status}
         </span>
-        {trace.total_latency_ms && (
-          <span className="text-xs text-white/40 font-mono ml-auto">
-            {trace.total_latency_ms}ms total
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {trace.total_latency_ms && (
+            <span className="text-xs text-white/40 font-mono">
+              {trace.total_latency_ms}ms
+            </span>
+          )}
+          {trace.total_cost_usd && (
+            <span className="text-xs text-green-400 font-mono">
+              ${Number(trace.total_cost_usd).toFixed(6)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Parent trace banner */}
