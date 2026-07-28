@@ -7,12 +7,13 @@
  *   On Vercel, we set VITE_API_URL to the Render backend URL.
  */
 
+
 import axios from 'axios'
 
 const BASE = import.meta.env.VITE_API_URL || '/api'
 
 const http = axios.create({ baseURL: BASE })
 
-export const getTraces = () => http.get('/traces')
-export const getTrace  = (id) => http.get(`/trace/${id}`)
+export const getTraces  = (params) => http.get('/traces', { params })
+export const getTrace   = (id) => http.get(`/trace/${id}`)
 export const postReplay = (body) => http.post('/replay', body)
