@@ -20,18 +20,57 @@ router = APIRouter()
 
 
 @router.get("/traces", response_model=list[TraceListItem])
-async def list_traces():
+async def list_traces(
+    status: str | None = None,
+    root_agent: str | None = None,
+    search: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+):
     pool = await get_pool()
+
+    conditions = []
+    params = []
+    idx = 1
+
+    if status:
+        conditions.append(f"status = ${idx}")
+        params.append(status)
+        idx += 1
+
+    if root_agent:
+        conditions.append(f"root_agent ILIKE ${idx}")
+        params.append(f"%{root_agent}%")
+        idx += 1
+
+    if search:
+        conditions.append(f"trace_id ILIKE ${idx}")
+        params.append(f"%{search}%")
+        idx += 1
+
+    if from_date:
+        conditions.append(f"created_at >= ${idx}")
+        params.append(from_date)
+        idx += 1
+
+    if to_date:
+        conditions.append(f"created_at <= ${idx}")
+        params.append(to_date)
+        idx += 1
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
+        rows = await conn.fetch(f"""
             SELECT trace_id, root_agent, status, total_latency_ms,
-                   parent_trace_id, created_at
+                   total_cost_usd, parent_trace_id, created_at
             FROM traces
+            {where}
             ORDER BY created_at DESC
             LIMIT 100
-        """)
-    return [dict(row) for row in rows]
+        """, *params)
 
+    return [dict(row) for row in rows]
 
 @router.get("/trace/{trace_id}")
 async def get_trace(trace_id: str):

@@ -63,10 +63,12 @@ export default function SpanNode({ data }) {
             <span className="text-[11px] font-mono text-white/80">{data.latency_ms}ms</span>
           </div>
         )}
-        {tokens != null && (
+        {data.estimated_cost_usd != null && (
           <div className="flex justify-between items-center">
-            <span className="text-[11px] text-white/40">tokens</span>
-            <span className="text-[11px] font-mono text-white/80">{tokens}</span>
+            <span className="text-[11px] text-white/40">cost</span>
+            <span className="text-[11px] font-mono text-green-400">
+              ${Number(data.estimated_cost_usd).toFixed(6)}
+            </span>
           </div>
         )}
         {data.span_type === 'HANDOFF' && (

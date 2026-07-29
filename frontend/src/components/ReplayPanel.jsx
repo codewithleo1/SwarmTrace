@@ -1,15 +1,5 @@
-/**
- * components/ReplayPanel.jsx — Time-travel replay UI.
- *
- * When a user clicks a span node, this panel slides in showing:
- *   - The span's input and output payloads
- *   - An editable textarea to override the output
- *   - A "Fork & Replay" button that calls POST /replay
- *
- * After replay, shows the forked trace_id with a link to view it.
- */
-
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { postReplay } from '../api/client'
 
 export default function ReplayPanel({ span, traceId, onReplayDone }) {
@@ -19,6 +9,7 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState(null)
   const [error, setError]     = useState(null)
+  const navigate = useNavigate()
 
   if (!span) return null
 
@@ -67,14 +58,14 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
         </pre>
       </div>
 
-      {/* Output override (editable) */}
+      {/* Output override */}
       <div>
         <p className="text-xs text-white/40 mb-1 uppercase tracking-wider">
           Override Output — edit this, then fork
         </p>
         <textarea
           value={overrideText}
-          onChange={(e) => setOverrideText(e.target.value)}
+          onChange={e => setOverrideText(e.target.value)}
           rows={6}
           className="w-full text-xs font-mono bg-[#0a0e1a] rounded-lg p-3 text-green-400 border border-[#2a3a55] focus:border-blue-500 focus:outline-none resize-none"
         />
@@ -91,7 +82,7 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
 
       {/* Result */}
       {result && (
-        <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3 space-y-1">
+        <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3 space-y-2">
           <p className="text-xs text-green-400 font-semibold">✅ Fork created successfully</p>
           <p className="text-xs text-white/60 font-mono">
             New trace: <span className="text-green-400">{result.forked_trace_id}</span>
@@ -99,6 +90,13 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
           <p className="text-xs text-white/40">
             Forked from step {result.forked_from_step} of original trace.
           </p>
+          {/* Compare Runs button — A4 */}
+          <button
+            onClick={() => navigate(`/diff/${traceId}/${result.forked_trace_id}`)}
+            className="w-full py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors mt-1"
+          >
+            🔍 Compare Runs Side by Side
+          </button>
         </div>
       )}
 
