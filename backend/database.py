@@ -4,10 +4,6 @@ database.py — Neon Postgres connection pool using asyncpg.
 Why asyncpg?
   FastAPI is async-first. asyncpg is a pure-async Postgres driver —
   no thread blocking, 3x faster than psycopg2 for async workloads.
-
-Why a connection pool?
-  Creating a new DB connection for every request is slow (~100ms).
-  A pool keeps connections warm and reuses them across requests.
 """
 
 import os
@@ -17,24 +13,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Global pool — initialised once on startup, shared across all requests
 _pool: asyncpg.Pool | None = None
 
 
 async def get_pool() -> asyncpg.Pool:
-    """Return the shared connection pool, creating it on first call."""
     global _pool
     if _pool is None:
         _pool = await asyncpg.create_pool(
             dsn=os.getenv("DATABASE_URL"),
-            min_size=2,   # always keep 2 connections warm
-            max_size=10,  # never open more than 10 simultaneous connections
+            min_size=2,
+            max_size=10,
         )
     return _pool
 
 
 async def close_pool() -> None:
-    """Gracefully close all connections — called on app shutdown."""
     global _pool
     if _pool:
         await _pool.close()
@@ -42,34 +35,50 @@ async def close_pool() -> None:
 
 
 async def apply_schema() -> None:
-    """
-    Create all tables if they don't already exist.
-    Safe to run on every startup — IF NOT EXISTS means no data loss.
-    """
+    """Create all tables if they don't already exist."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+                email         VARCHAR(255) UNIQUE NOT NULL,
+                name          VARCHAR(100) NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS api_keys (
+                key_id       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id      UUID         REFERENCES users(user_id) ON DELETE CASCADE,
+                name         VARCHAR(100) NOT NULL,
+                key_value    VARCHAR(100) UNIQUE NOT NULL,
+                is_active    BOOLEAN      DEFAULT true,
+                last_used_at TIMESTAMP,
+                created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS traces (
                 trace_id         VARCHAR(64)  PRIMARY KEY,
                 root_agent       VARCHAR(100),
                 status           VARCHAR(20) DEFAULT 'RUNNING',
                 total_latency_ms INT,
+                total_cost_usd   NUMERIC(10, 6),
                 parent_trace_id  VARCHAR(64) REFERENCES traces(trace_id),
                 created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS spans (
-                span_id         VARCHAR(64)  PRIMARY KEY,
-                trace_id        VARCHAR(64)  REFERENCES traces(trace_id),
-                parent_span_id  VARCHAR(64),
-                agent_name      VARCHAR(100),
-                span_type       VARCHAR(30),
-                input_payload   JSONB,
-                output_payload  JSONB,
-                latency_ms      INT,
-                token_usage     JSONB,
+                span_id              VARCHAR(64)  PRIMARY KEY,
+                trace_id             VARCHAR(64)  REFERENCES traces(trace_id),
+                parent_span_id       VARCHAR(64),
+                agent_name           VARCHAR(100),
+                span_type            VARCHAR(30),
+                input_payload        JSONB,
+                output_payload       JSONB,
+                latency_ms           INT,
+                token_usage          JSONB,
                 estimated_cost_usd   NUMERIC(10, 6),
-                created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS state_snapshots (
@@ -82,4 +91,11 @@ async def apply_schema() -> None:
                 created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        # Add new columns to existing tables if they don't exist yet
+        await conn.execute("""
+            ALTER TABLE spans  ADD COLUMN IF NOT EXISTS estimated_cost_usd NUMERIC(10, 6);
+            ALTER TABLE traces ADD COLUMN IF NOT EXISTS total_cost_usd     NUMERIC(10, 6);
+        """)
+
     print("✅ Schema applied — all tables ready.")

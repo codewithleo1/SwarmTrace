@@ -45,9 +45,9 @@ class TraceListItem(BaseModel):
     trace_id: str
     root_agent: str
     status: str
-    total_latency_ms: Optional[int]
-    total_cost_usd: Optional[float]
-    parent_trace_id: Optional[str]
+    total_latency_ms: int | None
+    total_cost_usd: float | None
+    parent_trace_id: str | None
     created_at: datetime
 
 
