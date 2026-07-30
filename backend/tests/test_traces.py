@@ -7,7 +7,7 @@ Tests cover:
   - /trace/{id} returns 404 for unknown trace_id
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,7 +18,7 @@ MOCK_TRACE = {
     "status": "SUCCESS",
     "total_latency_ms": 4200,
     "parent_trace_id": None,
-    "created_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+    "created_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
 }
 
 MOCK_SPAN = {
@@ -31,7 +31,7 @@ MOCK_SPAN = {
     "output_payload": '{"status": "complete"}',
     "latency_ms": 120,
     "token_usage": None,
-    "created_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+    "created_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
 }
 
 

@@ -11,7 +11,7 @@ Why JWT?
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from jose import jwt
@@ -33,7 +33,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(user_id: str, email: str) -> str:
     """Create a signed JWT containing user_id and email."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": user_id, "email": email, "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
