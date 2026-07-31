@@ -56,9 +56,17 @@ export default function TraceList() {
           <h1 className="text-xl font-bold tracking-tight">🔭 SwarmTrace</h1>
           <p className="text-xs text-white/40 mt-0.5">Multi-agent observability platform</p>
         </div>
-        <span className="text-xs text-white/30 font-mono">
-          {traces.length} trace{traces.length !== 1 ? 's' : ''}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-white/30 font-mono">
+            {traces.length} trace{traces.length !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => navigate('/settings')}
+            className="text-xs text-white/40 hover:text-white transition-colors"
+          >
+            ⚙️ Settings
+          </button>
+        </div>
       </div>
 
       <div className="px-8 py-6">
