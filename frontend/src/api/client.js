@@ -1,6 +1,7 @@
 /**
  * api/client.js — All calls to the FastAPI backend.
  * B1: Added auth headers, login, register, API key endpoints.
+ * B2: Added project endpoints. getTraces now accepts project_id param.
  */
 
 import axios from 'axios'
@@ -30,16 +31,21 @@ http.interceptors.response.use(
 )
 
 // Auth
-export const register  = (body) => http.post('/auth/register', body)
-export const login     = (body) => http.post('/auth/login', body)
-export const getMe     = ()     => http.get('/auth/me')
+export const register = (body) => http.post('/auth/register', body)
+export const login    = (body) => http.post('/auth/login', body)
+export const getMe    = ()     => http.get('/auth/me')
 
-// Traces
+// Projects
+export const getProjects    = ()       => http.get('/projects')
+export const createProject  = (body)   => http.post('/projects', body)
+export const deleteProject  = (id)     => http.delete(`/projects/${id}`)
+
+// Traces — project_id scopes the results to one project
 export const getTraces  = (params) => http.get('/traces', { params })
 export const getTrace   = (id)     => http.get(`/trace/${id}`)
 export const postReplay = (body)   => http.post('/replay', body)
 
 // API Keys
-export const getApiKeys    = ()       => http.get('/api-keys')
-export const createApiKey  = (body)   => http.post('/api-keys', body)
-export const revokeApiKey  = (id)     => http.delete(`/api-keys/${id}`)
+export const getApiKeys   = ()     => http.get('/api-keys')
+export const createApiKey = (body) => http.post('/api-keys', body)
+export const revokeApiKey = (id)   => http.delete(`/api-keys/${id}`)

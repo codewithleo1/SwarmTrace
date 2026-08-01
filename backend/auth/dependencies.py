@@ -9,14 +9,17 @@ Why two?
   Humans use JWT (short-lived, browser-friendly).
   Agent systems use API keys (static, easy to put in .env).
   Both return a user_id so downstream code doesn't care which was used.
+
+B2: get_api_key_user now also returns project_id so /ingest can stamp
+    the correct project onto each trace automatically.
 """
 
-from database import get_pool
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
 from auth.utils import decode_token
+from database import get_pool
 
 bearer_scheme = HTTPBearer(auto_error=False)
 api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -46,7 +49,7 @@ async def get_api_key_user(
 ) -> dict | None:
     """
     Validate X-API-Key header against the api_keys table.
-    Returns user dict if valid, None if header not present.
+    Returns user dict (with project_id) if valid, None if header not present.
     Raises 401 if key is invalid.
     """
     if not api_key:
@@ -55,7 +58,7 @@ async def get_api_key_user(
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("""
-            SELECT ak.user_id, u.email
+            SELECT ak.user_id, ak.project_id, u.email
             FROM api_keys ak
             JOIN users u ON u.user_id = ak.user_id
             WHERE ak.key_value = $1 AND ak.is_active = true
@@ -73,7 +76,11 @@ async def get_api_key_user(
             UPDATE api_keys SET last_used_at = NOW() WHERE key_value = $1
         """, api_key)
 
-    return {"user_id": str(row["user_id"]), "email": row["email"]}
+    return {
+        "user_id": str(row["user_id"]),
+        "email": row["email"],
+        "project_id": str(row["project_id"]) if row["project_id"] else None,
+    }
 
 
 async def require_auth(

@@ -1,11 +1,12 @@
 /**
  * pages/TraceList.jsx — Home page showing all swarm runs.
  * A3: Added search by trace ID + filter by status and agent.
+ * B2: Added project selector — traces are scoped to active project.
  */
 
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getTraces } from '../api/client'
+import { getTraces, getProjects } from '../api/client'
 
 const STATUS_STYLES = {
   SUCCESS:        'bg-green-500/20 text-green-400 border-green-500/30',
@@ -23,9 +24,11 @@ function StatusBadge({ status }) {
 }
 
 export default function TraceList() {
-  const [traces, setTraces]     = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState(null)
+  const [traces, setTraces]         = useState([])
+  const [projects, setProjects]     = useState([])
+  const [activeProject, setActive]  = useState(() => localStorage.getItem('swt_project') || '')
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState(null)
 
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatus]   = useState('')
@@ -33,21 +36,41 @@ export default function TraceList() {
 
   const navigate = useNavigate()
 
+  // Load projects once on mount
+  useEffect(() => {
+    getProjects().then(r => {
+      setProjects(r.data)
+      // Auto-select first project if none saved
+      if (!activeProject && r.data.length > 0) {
+        setActive(r.data[0].project_id)
+        localStorage.setItem('swt_project', r.data[0].project_id)
+      }
+    })
+  }, [])
+
   const fetchTraces = useCallback(() => {
     setLoading(true)
     setError(null)
-    const params = new URLSearchParams()
-    if (search)       params.append('search', search)
-    if (statusFilter) params.append('status', statusFilter)
-    if (agentFilter)  params.append('root_agent', agentFilter)
+    const params = {}
+    if (activeProject) params.project_id = activeProject
+    if (search)        params.search     = search
+    if (statusFilter)  params.status     = statusFilter
+    if (agentFilter)   params.root_agent = agentFilter
 
     getTraces(params)
       .then(r => setTraces(r.data))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [search, statusFilter, agentFilter])
+  }, [activeProject, search, statusFilter, agentFilter])
 
   useEffect(() => { fetchTraces() }, [fetchTraces])
+
+  function handleProjectChange(projectId) {
+    setActive(projectId)
+    localStorage.setItem('swt_project', projectId)
+  }
+
+  const activeProjectName = projects.find(p => p.project_id === activeProject)?.name || 'All Projects'
 
   return (
     <div className="min-h-screen bg-[#0a0e1a] text-white">
@@ -57,6 +80,19 @@ export default function TraceList() {
           <p className="text-xs text-white/40 mt-0.5">Multi-agent observability platform</p>
         </div>
         <div className="flex items-center gap-4">
+          {/* Project selector */}
+          <select
+            value={activeProject}
+            onChange={e => handleProjectChange(e.target.value)}
+            className="bg-[#1a2235] border border-[#2a3a55] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+          >
+            <option value="">All Projects</option>
+            {projects.map(p => (
+              <option key={p.project_id} value={p.project_id}>
+                {p.name} ({p.trace_count})
+              </option>
+            ))}
+          </select>
           <span className="text-xs text-white/30 font-mono">
             {traces.length} trace{traces.length !== 1 ? 's' : ''}
           </span>
@@ -70,7 +106,6 @@ export default function TraceList() {
       </div>
 
       <div className="px-8 py-6">
-
         <div className="flex flex-wrap gap-3 mb-5">
           <input
             type="text"
@@ -114,7 +149,9 @@ export default function TraceList() {
           )}
         </div>
 
-        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Agent Runs</h2>
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">
+          {activeProject ? `${activeProjectName} — Agent Runs` : 'All Agent Runs'}
+        </h2>
 
         {loading && <div className="text-center py-20 text-white/30">Loading traces...</div>}
 
@@ -125,7 +162,10 @@ export default function TraceList() {
         )}
 
         {!loading && !error && traces.length === 0 && (
-          <div className="text-center py-20 text-white/30">No traces found. Try clearing filters or run the swarm.</div>
+          <div className="text-center py-20 text-white/30">
+            No traces found.
+            {activeProject ? ' Run your agent with this project\'s API key.' : ' Try clearing filters or run the swarm.'}
+          </div>
         )}
 
         {!loading && traces.length > 0 && (

@@ -1,41 +1,73 @@
 /**
- * pages/Settings.jsx — User profile + API key management.
+ * pages/Settings.jsx — User profile + project management + API key management.
  *
- * Shows:
- *   - Current user info
- *   - List of API keys with preview + last used date
- *   - Generate new key button
- *   - Revoke key button
+ * B2: Added Projects section — create/delete projects.
+ *     API key creation now requires selecting a project.
  */
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getMe, getApiKeys, createApiKey, revokeApiKey } from '../api/client'
+import { getMe, getApiKeys, createApiKey, revokeApiKey, getProjects, createProject, deleteProject } from '../api/client'
 
 export default function Settings() {
-  const [user, setUser]         = useState(null)
-  const [keys, setKeys]         = useState([])
-  const [newKeyName, setName]   = useState('')
-  const [newKey, setNewKey]     = useState(null)   // shown once after creation
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState(null)
+  const [user, setUser]             = useState(null)
+  const [projects, setProjects]     = useState([])
+  const [keys, setKeys]             = useState([])
+  const [newKeyName, setKeyName]    = useState('')
+  const [newKeyProject, setKeyProj] = useState('')
+  const [newKey, setNewKey]         = useState(null)
+  const [newProjName, setProjName]  = useState('')
+  const [newProjDesc, setProjDesc]  = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [projLoading, setProjLoad]  = useState(false)
+  const [error, setError]           = useState(null)
+  const [projError, setProjError]   = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    getMe().then(r => setUser(r.data))
-    getApiKeys().then(r => setKeys(r.data))
-  }, [])
+  async function reload() {
+    const [meRes, projRes, keysRes] = await Promise.all([getMe(), getProjects(), getApiKeys()])
+    setUser(meRes.data)
+    setProjects(projRes.data)
+    setKeys(keysRes.data)
+    // Default key project selector to first project
+    if (projRes.data.length > 0 && !newKeyProject) {
+      setKeyProj(projRes.data[0].project_id)
+    }
+  }
 
-  async function handleCreate() {
-    if (!newKeyName.trim()) return
+  useEffect(() => { reload() }, [])
+
+  async function handleCreateProject() {
+    if (!newProjName.trim()) return
+    setProjLoad(true)
+    setProjError(null)
+    try {
+      await createProject({ name: newProjName.trim(), description: newProjDesc.trim() || null })
+      setProjName('')
+      setProjDesc('')
+      await reload()
+    } catch (e) {
+      setProjError(e.response?.data?.detail || e.message)
+    } finally {
+      setProjLoad(false)
+    }
+  }
+
+  async function handleDeleteProject(projectId) {
+    if (!confirm('Delete this project? Its traces will become unowned. API keys will be deleted.')) return
+    await deleteProject(projectId)
+    await reload()
+  }
+
+  async function handleCreateKey() {
+    if (!newKeyName.trim() || !newKeyProject) return
     setLoading(true)
     setError(null)
     try {
-      const res = await createApiKey({ name: newKeyName.trim() })
+      const res = await createApiKey({ name: newKeyName.trim(), project_id: newKeyProject })
       setNewKey(res.data)
-      setName('')
-      const updated = await getApiKeys()
-      setKeys(updated.data)
+      setKeyName('')
+      await reload()
     } catch (e) {
       setError(e.response?.data?.detail || e.message)
     } finally {
@@ -45,13 +77,13 @@ export default function Settings() {
 
   async function handleRevoke(keyId) {
     await revokeApiKey(keyId)
-    const updated = await getApiKeys()
-    setKeys(updated.data)
+    await reload()
   }
 
   function handleLogout() {
     localStorage.removeItem('swt_token')
     localStorage.removeItem('swt_user')
+    localStorage.removeItem('swt_project')
     navigate('/login')
   }
 
@@ -64,10 +96,7 @@ export default function Settings() {
         </button>
         <div className="h-4 w-px bg-[#2a3a55]" />
         <h1 className="text-sm font-bold">⚙️ Settings</h1>
-        <button
-          onClick={handleLogout}
-          className="ml-auto text-xs text-red-400 hover:text-red-300 transition-colors"
-        >
+        <button onClick={handleLogout} className="ml-auto text-xs text-red-400 hover:text-red-300 transition-colors">
           Sign Out
         </button>
       </div>
@@ -90,12 +119,84 @@ export default function Settings() {
           </div>
         )}
 
+        {/* Projects */}
+        <div className="space-y-4">
+          <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider">Projects</h2>
+          <p className="text-xs text-white/40">
+            Projects group your traces and API keys together. Each agent system (AEGIS, ACSA, etc.) should have its own project.
+          </p>
+
+          {/* Create project */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Project name (e.g. AEGIS)"
+                value={newProjName}
+                onChange={e => setProjName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
+                className="flex-1 bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                onClick={handleCreateProject}
+                disabled={projLoading || !newProjName.trim()}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              >
+                {projLoading ? '...' : '+ New Project'}
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Description (optional)"
+              value={newProjDesc}
+              onChange={e => setProjDesc(e.target.value)}
+              className="w-full bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {projError && <p className="text-xs text-red-400">{projError}</p>}
+
+          {/* Projects list */}
+          {projects.length === 0 ? (
+            <div className="text-center py-6 text-white/30 text-sm">No projects yet. Create one above.</div>
+          ) : (
+            <div className="rounded-xl border border-[#2a3a55] overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#2a3a55] bg-[#111827]">
+                    <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Name</th>
+                    <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Description</th>
+                    <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Traces</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((p, i) => (
+                    <tr key={p.project_id} className={`border-b border-[#2a3a55] ${i % 2 === 0 ? 'bg-[#0a0e1a]' : 'bg-[#0d1220]'}`}>
+                      <td className="px-4 py-3 text-white/80 font-semibold">{p.name}</td>
+                      <td className="px-4 py-3 text-xs text-white/40">{p.description || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-white/40">{p.trace_count}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleDeleteProject(p.project_id)}
+                          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* API Keys */}
         <div className="space-y-4">
           <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider">API Keys</h2>
           <p className="text-xs text-white/40">
-            Use API keys to authenticate agent systems (AEGIS, ACSA, etc.) without a login flow.
-            Add <code className="bg-white/10 px-1 rounded">X-API-Key: swt_...</code> to your agent's headers.
+            Each API key is scoped to a project. Add <code className="bg-white/10 px-1 rounded">X-API-Key: swt_...</code> to your agent's headers — traces will appear in the correct project automatically.
           </p>
 
           {/* New key shown once */}
@@ -113,46 +214,52 @@ export default function Settings() {
                   Copy
                 </button>
               </div>
-              <button onClick={() => setNewKey(null)} className="text-xs text-white/30 hover:text-white/60">
-                Dismiss
-              </button>
+              <button onClick={() => setNewKey(null)} className="text-xs text-white/30 hover:text-white/60">Dismiss</button>
             </div>
           )}
 
           {/* Generate new key */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Key name (e.g. AEGIS production)"
-              value={newKeyName}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              className="flex-1 bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500"
-            />
-            <button
-              onClick={handleCreate}
-              disabled={loading || !newKeyName.trim()}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Key name (e.g. AEGIS production)"
+                value={newKeyName}
+                onChange={e => setKeyName(e.target.value)}
+                className="flex-1 bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                onClick={handleCreateKey}
+                disabled={loading || !newKeyName.trim() || !newKeyProject}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              >
+                {loading ? '...' : '+ Generate Key'}
+              </button>
+            </div>
+            <select
+              value={newKeyProject}
+              onChange={e => setKeyProj(e.target.value)}
+              className="w-full bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
             >
-              {loading ? '...' : '+ Generate Key'}
-            </button>
+              <option value="">Select a project for this key</option>
+              {projects.map(p => (
+                <option key={p.project_id} value={p.project_id}>{p.name}</option>
+              ))}
+            </select>
           </div>
 
-          {error && (
-            <p className="text-xs text-red-400">{error}</p>
-          )}
+          {error && <p className="text-xs text-red-400">{error}</p>}
 
           {/* Keys list */}
           {keys.length === 0 ? (
-            <div className="text-center py-8 text-white/30 text-sm">
-              No API keys yet. Generate one above.
-            </div>
+            <div className="text-center py-8 text-white/30 text-sm">No API keys yet. Generate one above.</div>
           ) : (
             <div className="rounded-xl border border-[#2a3a55] overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#2a3a55] bg-[#111827]">
                     <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Name</th>
+                    <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Project</th>
                     <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Key</th>
                     <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Last Used</th>
                     <th className="text-left px-4 py-3 text-xs text-white/40 uppercase tracking-wider">Status</th>
@@ -163,6 +270,7 @@ export default function Settings() {
                   {keys.map((k, i) => (
                     <tr key={k.key_id} className={`border-b border-[#2a3a55] ${i % 2 === 0 ? 'bg-[#0a0e1a]' : 'bg-[#0d1220]'}`}>
                       <td className="px-4 py-3 text-white/80">{k.name}</td>
+                      <td className="px-4 py-3 text-xs text-blue-400">{k.project_name || '—'}</td>
                       <td className="px-4 py-3 font-mono text-xs text-white/40">{k.key_preview}</td>
                       <td className="px-4 py-3 text-xs text-white/40">
                         {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'Never'}
