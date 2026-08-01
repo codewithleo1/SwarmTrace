@@ -49,3 +49,7 @@ export const postReplay = (body)   => http.post('/replay', body)
 export const getApiKeys   = ()     => http.get('/api-keys')
 export const createApiKey = (body) => http.post('/api-keys', body)
 export const revokeApiKey = (id)   => http.delete(`/api-keys/${id}`)
+
+// Evaluations
+export const evaluateTrace  = (traceId) => http.post(`/evaluate/${traceId}`)
+export const getEvaluations = (traceId) => http.get(`/evaluations/${traceId}`)

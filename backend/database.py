@@ -100,6 +100,20 @@ async def apply_schema() -> None:
                 state_data   JSONB,
                 created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS evaluations (
+                eval_id      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+                trace_id     VARCHAR(64) REFERENCES traces(trace_id),
+                span_id      VARCHAR(64) REFERENCES spans(span_id),
+                judge_model  VARCHAR(100),
+                relevance    NUMERIC(4,2),
+                reasoning    NUMERIC(4,2),
+                quality      NUMERIC(4,2),
+                overall      NUMERIC(4,2),
+                verdict      VARCHAR(10),
+                feedback     TEXT,
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
 
         # Migrations — add new columns to existing tables without dropping data
