@@ -15,7 +15,7 @@
 | 4 | Time-Travel Replay Engine | ✅ Complete |
 | 5 | React Frontend (Span Tree + Replay UI) | ✅ Complete |
 | A | Portfolio Polish | ✅ Complete |
-| B | Open Source Tool | 🟡 Next |
+| B | Open Source Tool | 🟡 In Progress |
 | C | Enterprise SaaS | ⬜ Planned |
 
 ---
@@ -47,11 +47,11 @@
 
 ---
 
-## Phase B — Open Source Tool (Next)
+## Phase B — Open Source Tool (In Progress)
 
 ### Checklist
-- [ ] B1: JWT Auth + API keys
-- [ ] B2: Multi-tenancy (projects / workspaces)
+- [x] B1: JWT Auth + API keys (users, api_keys tables, /auth/* routes, PrivateRoute, Settings page)
+- [x] B2: Multi-tenancy — projects/workspaces (projects table, project_id on traces + api_keys, project selector in UI)
 - [ ] B3: LLM-as-a-judge evaluations
 - [ ] B4: Alerting (email/webhook on FAILED traces)
 - [ ] B5: Dashboard metrics (charts, cost per day, error rate)
