@@ -47,9 +47,18 @@ async def apply_schema() -> None:
                 created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS projects (
+                project_id   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id      UUID         REFERENCES users(user_id) ON DELETE CASCADE,
+                name         VARCHAR(100) NOT NULL,
+                description  VARCHAR(255),
+                created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS api_keys (
                 key_id       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
                 user_id      UUID         REFERENCES users(user_id) ON DELETE CASCADE,
+                project_id   UUID         REFERENCES projects(project_id) ON DELETE CASCADE,
                 name         VARCHAR(100) NOT NULL,
                 key_value    VARCHAR(100) UNIQUE NOT NULL,
                 is_active    BOOLEAN      DEFAULT true,
@@ -59,6 +68,7 @@ async def apply_schema() -> None:
 
             CREATE TABLE IF NOT EXISTS traces (
                 trace_id         VARCHAR(64)  PRIMARY KEY,
+                project_id       UUID         REFERENCES projects(project_id) ON DELETE SET NULL,
                 root_agent       VARCHAR(100),
                 status           VARCHAR(20) DEFAULT 'RUNNING',
                 total_latency_ms INT,
@@ -92,10 +102,12 @@ async def apply_schema() -> None:
             );
         """)
 
-        # Add new columns to existing tables if they don't exist yet
+        # Migrations — add new columns to existing tables without dropping data
         await conn.execute("""
-            ALTER TABLE spans  ADD COLUMN IF NOT EXISTS estimated_cost_usd NUMERIC(10, 6);
-            ALTER TABLE traces ADD COLUMN IF NOT EXISTS total_cost_usd     NUMERIC(10, 6);
+            ALTER TABLE spans    ADD COLUMN IF NOT EXISTS estimated_cost_usd NUMERIC(10, 6);
+            ALTER TABLE traces   ADD COLUMN IF NOT EXISTS total_cost_usd     NUMERIC(10, 6);
+            ALTER TABLE traces   ADD COLUMN IF NOT EXISTS project_id         UUID REFERENCES projects(project_id) ON DELETE SET NULL;
+            ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id         UUID REFERENCES projects(project_id) ON DELETE CASCADE;
         """)
 
     print("✅ Schema applied — all tables ready.")
