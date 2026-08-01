@@ -11,6 +11,7 @@ import os
 
 import httpx
 from langchain_groq import ChatGroq
+
 from tracing.otel_setup import Span, emit_spans
 
 logger = logging.getLogger(__name__)

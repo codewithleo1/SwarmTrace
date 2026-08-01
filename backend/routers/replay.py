@@ -12,8 +12,9 @@ How it works:
 import json
 import uuid
 
-from database import get_pool
 from fastapi import APIRouter, HTTPException
+
+from database import get_pool
 from models import ReplayRequest
 
 router = APIRouter()

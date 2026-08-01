@@ -17,6 +17,7 @@ import uuid
 import anyio
 import httpx
 from dotenv import load_dotenv
+
 from tracing.otel_setup import Span, emit_spans, new_id
 
 load_dotenv()

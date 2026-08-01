@@ -8,11 +8,12 @@ GET  /auth/me        — get current user info
 
 import uuid
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
+
 from auth.dependencies import get_current_user
 from auth.utils import create_access_token, hash_password, verify_password
 from database import get_pool
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

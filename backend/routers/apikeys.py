@@ -15,10 +15,11 @@ this key, the backend stamps project_id onto the trace automatically.
 import secrets
 import uuid
 
-from auth.dependencies import get_current_user
-from database import get_pool
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from auth.dependencies import get_current_user
+from database import get_pool
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
