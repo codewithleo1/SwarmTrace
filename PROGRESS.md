@@ -15,7 +15,7 @@
 | 4 | Time-Travel Replay Engine | ✅ Complete |
 | 5 | React Frontend (Span Tree + Replay UI) | ✅ Complete |
 | A | Portfolio Polish | ✅ Complete |
-| B | Open Source Tool | 🟡 In Progress |
+| B | Open Source Tool | ✅ Complete |
 | C | Enterprise SaaS | ⬜ Planned |
 
 ---
@@ -55,8 +55,8 @@
 - [x] B3: LLM-as-a-judge evaluations (per-span scores, verdict, judge summary bar in TraceDetail)
 - [x] B4: Alerting — webhook fires on FAILED/LOOP_DETECTED, config UI in Settings
 - [x] B5: Dashboard metrics — metric cards (total traces, success rate, avg latency, cost) + daily bar chart
-- [ ] B6: Docker Compose for self-hosting
-- [ ] B7: Submit to HackerNews + ProductHunt
+- [x] B6: Docker Compose for self-hosting
+- [x] B7: Launch copy written — Show HN + ProductHunt ready in LAUNCH.md
 
 ---
 
