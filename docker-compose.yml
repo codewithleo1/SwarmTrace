@@ -1,0 +1,52 @@
+# docker-compose.yml
+# Run SwarmTrace locally with one command: docker compose up
+#
+# Services:
+#   postgres  — local Postgres database
+#   backend   — FastAPI server on port 8000
+#
+# Prerequisites: Docker Desktop installed
+# Usage:
+#   docker compose up          # start everything
+#   docker compose up -d       # start in background
+#   docker compose down        # stop everything
+#   docker compose down -v     # stop and delete database volume
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: swarmtrace
+      POSTGRES_PASSWORD: swarmtrace
+      POSTGRES_DB: swarmtrace
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swarmtrace"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://swarmtrace:swarmtrace@postgres:5432/swarmtrace
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      INGEST_URL: http://backend:8000/ingest
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
