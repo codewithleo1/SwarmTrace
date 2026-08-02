@@ -17,9 +17,10 @@ import json
 import os
 import uuid
 
-from database import get_pool
 from fastapi import APIRouter, HTTPException
 from groq import Groq
+
+from database import get_pool
 
 router = APIRouter()
 
