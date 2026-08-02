@@ -4,32 +4,27 @@ routers/ingest.py — POST /ingest
 Receives a batch of OTel spans from the running swarm and stores them
 in Neon Postgres. Also receives state_snapshots for time-travel replay.
 
-Why batch ingest?
-  Sending one HTTP request per span would be slow. Batching all spans
-  from one agent step into a single POST reduces network overhead.
-
-B2: project_id is now stamped on every trace. It comes from the API key
-    used to authenticate the request — no extra field needed in the payload.
+B2: project_id stamped on every trace from API key.
+B4: fire_alert() called when LOOP_DETECTED.
 """
 
 import json
 
 from fastapi import APIRouter, Depends
 
+from alerting import fire_alert
 from auth.dependencies import require_auth
 from database import get_pool
 from models import IngestRequest
 
-# Groq llama-3.3-70b-versatile pricing (per 1M tokens)
-_INPUT_COST_PER_M = 0.59
+_INPUT_COST_PER_M  = 0.59
 _OUTPUT_COST_PER_M = 0.79
 
 
 def _calculate_cost(token_usage: dict | None) -> float | None:
-    """Calculate estimated USD cost from token usage."""
     if not token_usage:
         return None
-    prompt = token_usage.get("prompt_tokens", 0)
+    prompt     = token_usage.get("prompt_tokens", 0)
     completion = token_usage.get("completion_tokens", 0)
     cost = (prompt / 1_000_000 * _INPUT_COST_PER_M) + (
         completion / 1_000_000 * _OUTPUT_COST_PER_M
@@ -46,11 +41,10 @@ async def ingest(
     user: dict = Depends(require_auth),  # noqa: B008
 ):
     pool = await get_pool()
-    project_id = user.get("project_id")  # None if using JWT instead of API key
+    project_id = user.get("project_id")
 
     async with pool.acquire() as conn:
         for span in request.spans:
-            # Upsert the parent trace row — stamp project_id if we have one
             await conn.execute(
                 """
                 INSERT INTO traces (trace_id, project_id, root_agent, status)
@@ -63,7 +57,6 @@ async def ingest(
                 span.agent_name if span.parent_span_id is None else "orchestrator",
             )
 
-            # Insert the span
             cost = _calculate_cost(span.token_usage)
             await conn.execute(
                 """
@@ -86,9 +79,8 @@ async def ingest(
                 cost,
             )
 
-            # Loop detection
             if span.span_type == "HANDOFF":
-                sender = span.input_payload.get("sender", "")
+                sender   = span.input_payload.get("sender", "")
                 receiver = span.input_payload.get("receiver", "")
                 count = await conn.fetchval(
                     """
@@ -98,21 +90,16 @@ async def ingest(
                       AND input_payload->>'sender' = $2
                       AND input_payload->>'receiver' = $3
                     """,
-                    span.trace_id,
-                    sender,
-                    receiver,
+                    span.trace_id, sender, receiver,
                 )
 
                 if count > 4:
                     await conn.execute(
-                        """
-                        UPDATE traces SET status = 'LOOP_DETECTED'
-                        WHERE trace_id = $1
-                        """,
+                        "UPDATE traces SET status = 'LOOP_DETECTED' WHERE trace_id = $1",
                         span.trace_id,
                     )
+                    await fire_alert(span.trace_id, "LOOP_DETECTED", project_id)
 
-        # Store state snapshots
         for snap in request.snapshots:
             await conn.execute(
                 """

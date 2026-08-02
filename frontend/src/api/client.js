@@ -53,3 +53,8 @@ export const revokeApiKey = (id)   => http.delete(`/api-keys/${id}`)
 // Evaluations
 export const evaluateTrace  = (traceId) => http.post(`/evaluate/${traceId}`)
 export const getEvaluations = (traceId) => http.get(`/evaluations/${traceId}`)
+
+// Alerts
+export const getAlertConfig    = (projectId) => http.get(`/alerts/${projectId}`)
+export const upsertAlertConfig = (body)       => http.post('/alerts', body)
+export const deleteAlertConfig = (projectId)  => http.delete(`/alerts/${projectId}`)

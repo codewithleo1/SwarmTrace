@@ -11,10 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import apply_schema, close_pool
 from routers import ingest, replay, traces
+from routers.alerts import router as alerts_router
 from routers.apikeys import router as apikeys_router
 from routers.auth import router as auth_router
-from routers.projects import router as projects_router
 from routers.evaluate import router as evaluate_router
+from routers.projects import router as projects_router
 
 
 @asynccontextmanager
@@ -49,6 +50,7 @@ app.include_router(auth_router)
 # Protected routes
 app.include_router(projects_router)
 app.include_router(evaluate_router)
+app.include_router(alerts_router)
 app.include_router(ingest.router)
 app.include_router(traces.router)
 app.include_router(replay.router)

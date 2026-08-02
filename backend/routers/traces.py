@@ -16,6 +16,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 
+from alerting import fire_alert
 from database import get_pool
 from models import TraceListItem
 
@@ -135,21 +136,34 @@ async def get_trace(trace_id: str):
     }
 
 
+
 @router.patch("/traces/{trace_id}/complete")
-async def complete_trace(trace_id: str):
-    """Mark a trace as SUCCESS and calculate total latency."""
+async def complete_trace(trace_id: str, status: str = "SUCCESS"):
+    """Mark a trace as complete and calculate total latency. Fires alert if FAILED."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
             """
             UPDATE traces
-            SET status = 'SUCCESS',
+            SET status = $2,
                 total_latency_ms = (
                     SELECT COALESCE(SUM(latency_ms), 0)
+                    FROM spans WHERE trace_id = $1
+                ),
+                total_cost_usd = (
+                    SELECT COALESCE(SUM(estimated_cost_usd), 0)
                     FROM spans WHERE trace_id = $1
                 )
             WHERE trace_id = $1
             """,
-            trace_id,
+            trace_id, status,
         )
+        # Fetch project_id for alert firing
+        row = await conn.fetchrow(
+            "SELECT project_id FROM traces WHERE trace_id = $1", trace_id
+        )
+
+    if status == "FAILED" and row:
+        await fire_alert(trace_id, "FAILED", str(row["project_id"]) if row["project_id"] else None)
+
     return {"status": "ok"}

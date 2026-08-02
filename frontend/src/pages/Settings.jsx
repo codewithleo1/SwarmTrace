@@ -7,7 +7,125 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getMe, getApiKeys, createApiKey, revokeApiKey, getProjects, createProject, deleteProject } from '../api/client'
+import { getMe, getApiKeys, createApiKey, revokeApiKey, getProjects, createProject, deleteProject, getAlertConfig, upsertAlertConfig, deleteAlertConfig } from '../api/client'
+
+function AlertsSection({ projects }) {
+  const [selectedProj, setSelectedProj] = useState(projects[0]?.project_id || '')
+  const [webhookUrl, setWebhookUrl]     = useState('')
+  const [onFailed, setOnFailed]         = useState(true)
+  const [onLoop, setOnLoop]             = useState(true)
+  const [existing, setExisting]         = useState(null)
+  const [saving, setSaving]             = useState(false)
+  const [alertError, setAlertError]     = useState(null)
+  const [saved, setSaved]               = useState(false)
+
+  useEffect(() => {
+    if (!selectedProj) return
+    setAlertError(null)
+    setExisting(null)
+    setWebhookUrl('')
+    getAlertConfig(selectedProj)
+      .then(r => {
+        if (r.data) {
+          setExisting(r.data)
+          setWebhookUrl(r.data.webhook_url)
+          setOnFailed(r.data.on_failed)
+          setOnLoop(r.data.on_loop)
+        }
+      })
+      .catch(() => {})
+  }, [selectedProj])
+
+  async function handleSave() {
+    if (!webhookUrl.trim() || !selectedProj) return
+    setSaving(true)
+    setAlertError(null)
+    setSaved(false)
+    try {
+      await upsertAlertConfig({ project_id: selectedProj, webhook_url: webhookUrl.trim(), on_failed: onFailed, on_loop: onLoop })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setAlertError(e.response?.data?.detail || e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedProj) return
+    await deleteAlertConfig(selectedProj)
+    setExisting(null)
+    setWebhookUrl('')
+    setSaved(false)
+  }
+
+  if (projects.length === 0) return (
+    <div className="text-xs text-white/30">Create a project first to configure alerts.</div>
+  )
+
+  return (
+    <div className="space-y-3">
+      <select
+        value={selectedProj}
+        onChange={e => setSelectedProj(e.target.value)}
+        className="w-full bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+      >
+        {projects.map(p => (
+          <option key={p.project_id} value={p.project_id}>{p.name}</option>
+        ))}
+      </select>
+
+      <input
+        type="url"
+        placeholder="https://webhook.site/your-url or https://hooks.slack.com/..."
+        value={webhookUrl}
+        onChange={e => setWebhookUrl(e.target.value)}
+        className="w-full bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500"
+      />
+
+      <div className="flex gap-6">
+        <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+          <input type="checkbox" checked={onFailed} onChange={e => setOnFailed(e.target.checked)}
+            className="accent-blue-500" />
+          Alert on FAILED
+        </label>
+        <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+          <input type="checkbox" checked={onLoop} onChange={e => setOnLoop(e.target.checked)}
+            className="accent-blue-500" />
+          Alert on LOOP_DETECTED
+        </label>
+      </div>
+
+      {alertError && <p className="text-xs text-red-400">{alertError}</p>}
+      {saved && <p className="text-xs text-green-400">✅ Webhook saved</p>}
+
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || !webhookUrl.trim()}
+          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+        >
+          {saving ? '...' : existing ? 'Update Webhook' : 'Save Webhook'}
+        </button>
+        {existing && (
+          <button
+            onClick={handleDelete}
+            className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:text-red-300 text-sm transition-colors"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+
+      {existing && (
+        <p className="text-[11px] text-white/30">
+          Last updated: {new Date(existing.updated_at).toLocaleString()}
+        </p>
+      )}
+    </div>
+  )
+}
 
 export default function Settings() {
   const [user, setUser]             = useState(null)
@@ -190,6 +308,16 @@ export default function Settings() {
               </table>
             </div>
           )}
+        </div>
+        
+        {/* Alerts */}
+        <div className="space-y-4">
+          <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider">Webhook Alerts</h2>
+          <p className="text-xs text-white/40">
+            Get notified when a trace fails. SwarmTrace will POST a JSON payload to your webhook URL.
+            Works with Slack, Discord, PagerDuty, or any HTTP endpoint.
+          </p>
+          <AlertsSection projects={projects} />
         </div>
 
         {/* API Keys */}

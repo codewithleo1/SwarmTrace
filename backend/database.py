@@ -114,6 +114,16 @@ async def apply_schema() -> None:
                 feedback     TEXT,
                 created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS alert_configs (
+                config_id   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+                project_id  UUID         UNIQUE REFERENCES projects(project_id) ON DELETE CASCADE,
+                webhook_url VARCHAR(500) NOT NULL,
+                on_failed   BOOLEAN      DEFAULT true,
+                on_loop     BOOLEAN      DEFAULT true,
+                created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                updated_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+            );
         """)
 
         # Migrations — add new columns to existing tables without dropping data
