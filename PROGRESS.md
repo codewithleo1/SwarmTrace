@@ -54,7 +54,7 @@
 - [x] B2: Multi-tenancy — projects/workspaces (projects table, project_id on traces + api_keys, project selector in UI)
 - [x] B3: LLM-as-a-judge evaluations (per-span scores, verdict, judge summary bar in TraceDetail)
 - [x] B4: Alerting — webhook fires on FAILED/LOOP_DETECTED, config UI in Settings
-- [ ] B5: Dashboard metrics (charts, cost per day, error rate)
+- [x] B5: Dashboard metrics — metric cards (total traces, success rate, avg latency, cost) + daily bar chart
 - [ ] B6: Docker Compose for self-hosting
 - [ ] B7: Submit to HackerNews + ProductHunt
 
