@@ -58,3 +58,6 @@ export const getEvaluations = (traceId) => http.get(`/evaluations/${traceId}`)
 export const getAlertConfig    = (projectId) => http.get(`/alerts/${projectId}`)
 export const upsertAlertConfig = (body)       => http.post('/alerts', body)
 export const deleteAlertConfig = (projectId)  => http.delete(`/alerts/${projectId}`)
+
+// Metrics
+export const getMetrics = (projectId) => http.get('/metrics', { params: projectId ? { project_id: projectId } : {} })

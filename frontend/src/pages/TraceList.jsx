@@ -2,11 +2,12 @@
  * pages/TraceList.jsx — Home page showing all swarm runs.
  * A3: Added search by trace ID + filter by status and agent.
  * B2: Added project selector — traces are scoped to active project.
+ * B5: Added dashboard metrics cards + daily trace chart.
  */
 
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getTraces, getProjects } from '../api/client'
+import { getTraces, getProjects, getMetrics } from '../api/client'
 
 const STATUS_STYLES = {
   SUCCESS:        'bg-green-500/20 text-green-400 border-green-500/30',
@@ -23,9 +24,88 @@ function StatusBadge({ status }) {
   )
 }
 
+function MetricCard({ label, value, sub, color = 'text-white' }) {
+  return (
+    <div className="rounded-xl border border-[#2a3a55] bg-[#1a2235] p-4 space-y-1">
+      <p className="text-xs text-white/40 uppercase tracking-wider">{label}</p>
+      <p className={`text-2xl font-bold font-mono ${color}`}>{value ?? '—'}</p>
+      {sub && <p className="text-xs text-white/30">{sub}</p>}
+    </div>
+  )
+}
+
+function MiniBarChart({ daily }) {
+  if (!daily || daily.length === 0) return (
+    <div className="flex items-center justify-center h-full text-white/20 text-xs">No data</div>
+  )
+  const max = Math.max(...daily.map(d => d.count), 1)
+
+  return (
+    <div className="flex items-end gap-1.5 h-16 w-full">
+      {daily.map((d, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+          <div
+            className="w-full rounded-sm bg-blue-500/60 hover:bg-blue-400/80 transition-colors"
+            style={{ height: `${Math.max((d.count / max) * 100, 8)}%` }}
+            title={`${d.day}: ${d.count} traces`}
+          />
+          <span className="text-[9px] text-white/20 rotate-45 origin-left">
+            {new Date(d.day).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Dashboard({ metrics }) {
+  if (!metrics) return null
+  const { summary, daily } = metrics
+
+  return (
+    <div className="mb-6 space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard
+          label="Total Traces"
+          value={summary.total_traces}
+          sub={`${summary.running ?? 0} running`}
+        />
+        <MetricCard
+          label="Success Rate"
+          value={summary.success_rate != null ? `${summary.success_rate}%` : '—'}
+          sub={`${summary.failed ?? 0} failed · ${summary.loops ?? 0} loops`}
+          color={
+            summary.success_rate >= 90 ? 'text-green-400' :
+            summary.success_rate >= 70 ? 'text-yellow-400' :
+            'text-red-400'
+          }
+        />
+        <MetricCard
+          label="Avg Latency"
+          value={summary.avg_latency_ms ? `${Number(summary.avg_latency_ms).toLocaleString()}ms` : '—'}
+          sub="across all traces"
+        />
+        <MetricCard
+          label="Total Cost"
+          value={summary.total_cost_usd ? `$${Number(summary.total_cost_usd).toFixed(4)}` : '$0'}
+          sub="estimated spend"
+          color="text-green-400"
+        />
+      </div>
+
+      {/* Daily chart */}
+      <div className="rounded-xl border border-[#2a3a55] bg-[#1a2235] p-4">
+        <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Traces — Last 7 Days</p>
+        <MiniBarChart daily={daily} />
+      </div>
+    </div>
+  )
+}
+
 export default function TraceList() {
   const [traces, setTraces]         = useState([])
   const [projects, setProjects]     = useState([])
+  const [metrics, setMetrics]       = useState(null)
   const [activeProject, setActive]  = useState(() => localStorage.getItem('swt_project') || '')
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
@@ -36,11 +116,9 @@ export default function TraceList() {
 
   const navigate = useNavigate()
 
-  // Load projects once on mount
   useEffect(() => {
     getProjects().then(r => {
       setProjects(r.data)
-      // Auto-select first project if none saved
       if (!activeProject && r.data.length > 0) {
         setActive(r.data[0].project_id)
         localStorage.setItem('swt_project', r.data[0].project_id)
@@ -63,7 +141,14 @@ export default function TraceList() {
       .finally(() => setLoading(false))
   }, [activeProject, search, statusFilter, agentFilter])
 
+  const fetchMetrics = useCallback(() => {
+    getMetrics(activeProject || null)
+      .then(r => setMetrics(r.data))
+      .catch(() => {})
+  }, [activeProject])
+
   useEffect(() => { fetchTraces() }, [fetchTraces])
+  useEffect(() => { fetchMetrics() }, [fetchMetrics])
 
   function handleProjectChange(projectId) {
     setActive(projectId)
@@ -80,7 +165,6 @@ export default function TraceList() {
           <p className="text-xs text-white/40 mt-0.5">Multi-agent observability platform</p>
         </div>
         <div className="flex items-center gap-4">
-          {/* Project selector */}
           <select
             value={activeProject}
             onChange={e => handleProjectChange(e.target.value)}
@@ -106,6 +190,10 @@ export default function TraceList() {
       </div>
 
       <div className="px-8 py-6">
+
+        {/* Dashboard */}
+        <Dashboard metrics={metrics} />
+
         <div className="flex flex-wrap gap-3 mb-5">
           <input
             type="text"
@@ -114,7 +202,6 @@ export default function TraceList() {
             onChange={e => setSearch(e.target.value)}
             className="bg-[#1a2235] border border-[#2a3a55] rounded-lg px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-blue-500 w-64"
           />
-
           <select
             value={statusFilter}
             onChange={e => setStatus(e.target.value)}
@@ -126,7 +213,6 @@ export default function TraceList() {
             <option value="FAILED">FAILED</option>
             <option value="LOOP_DETECTED">LOOP_DETECTED</option>
           </select>
-
           <select
             value={agentFilter}
             onChange={e => setAgent(e.target.value)}
@@ -138,7 +224,6 @@ export default function TraceList() {
             <option value="writer">Writer</option>
             <option value="critic">Critic</option>
           </select>
-
           {(search || statusFilter || agentFilter) && (
             <button
               onClick={() => { setSearch(''); setStatus(''); setAgent('') }}

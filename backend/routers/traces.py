@@ -167,3 +167,60 @@ async def complete_trace(trace_id: str, status: str = "SUCCESS"):
         await fire_alert(trace_id, "FAILED", str(row["project_id"]) if row["project_id"] else None)
 
     return {"status": "ok"}
+
+
+@router.get("/metrics")
+async def get_metrics(project_id: str | None = None):
+    """
+    Returns aggregate metrics for the dashboard.
+    Optionally scoped to a project.
+    """
+    pool = await get_pool()
+
+    where = "WHERE project_id = $1" if project_id else ""
+    date_filter = (
+        "AND created_at >= NOW() - INTERVAL '7 days'"
+        if project_id
+        else "WHERE created_at >= NOW() - INTERVAL '7 days'"
+    )
+    params = [project_id] if project_id else []
+
+    async with pool.acquire() as conn:
+        summary = await conn.fetchrow(
+            f"""
+            SELECT
+                COUNT(*)                                            AS total_traces,
+                COUNT(*) FILTER (WHERE status = 'SUCCESS')         AS successful,
+                COUNT(*) FILTER (WHERE status = 'FAILED')          AS failed,
+                COUNT(*) FILTER (WHERE status = 'LOOP_DETECTED')   AS loops,
+                COUNT(*) FILTER (WHERE status = 'RUNNING')         AS running,
+                ROUND(AVG(total_latency_ms))                       AS avg_latency_ms,
+                ROUND(CAST(SUM(total_cost_usd) AS NUMERIC), 6)     AS total_cost_usd,
+                ROUND(
+                    100.0 * COUNT(*) FILTER (WHERE status = 'SUCCESS')
+                    / NULLIF(COUNT(*), 0), 1
+                )                                                   AS success_rate
+            FROM traces
+            {where}
+            """,
+            *params,
+        )
+
+        daily = await conn.fetch(
+            f"""
+            SELECT
+                DATE(created_at) AS day,
+                COUNT(*)         AS count
+            FROM traces
+            {where}
+            {date_filter}
+            GROUP BY DATE(created_at)
+            ORDER BY day ASC
+            """,
+            *params,
+        )
+
+    return {
+        "summary": dict(summary),
+        "daily":   [dict(r) for r in daily],
+    }
