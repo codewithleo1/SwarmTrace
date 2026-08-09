@@ -3,23 +3,37 @@
  * A3: Added search by trace ID + filter by status and agent.
  * B2: Added project selector — traces are scoped to active project.
  * B5: Added dashboard metrics cards + daily trace chart.
+ * C4: WebSocket live updates — new traces appear without refresh.
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getTraces, getProjects, getMetrics } from '../api/client'
+import { getTraces, getProjects, getMetrics, createTraceSocket } from '../api/client'
 
 const STATUS_STYLES = {
-  SUCCESS:        'bg-green-500/20 text-green-400 border-green-500/30',
-  RUNNING:        'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  FAILED:         'bg-red-500/20 text-red-400 border-red-500/30',
-  LOOP_DETECTED:  'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  SUCCESS:       'bg-green-500/20 text-green-400 border-green-500/30',
+  RUNNING:       'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  FAILED:        'bg-red-500/20 text-red-400 border-red-500/30',
+  LOOP_DETECTED: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
 }
 
 function StatusBadge({ status }) {
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${STATUS_STYLES[status] || 'bg-white/10 text-white/40'}`}>
       {status}
+    </span>
+  )
+}
+
+function LiveDot({ connected }) {
+  if (!connected) return null
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-green-400">
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+      </span>
+      live
     </span>
   )
 }
@@ -39,7 +53,6 @@ function MiniBarChart({ daily }) {
     <div className="flex items-center justify-center h-full text-white/20 text-xs">No data</div>
   )
   const max = Math.max(...daily.map(d => d.count), 1)
-
   return (
     <div className="flex items-end gap-1.5 h-16 w-full">
       {daily.map((d, i) => (
@@ -61,7 +74,6 @@ function MiniBarChart({ daily }) {
 function Dashboard({ metrics }) {
   if (!metrics) return null
   const { summary, daily } = metrics
-
   return (
     <div className="mb-6 space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -92,8 +104,6 @@ function Dashboard({ metrics }) {
           color="text-green-400"
         />
       </div>
-
-      {/* Daily chart */}
       <div className="rounded-xl border border-[#2a3a55] bg-[#1a2235] p-4">
         <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Traces — Last 7 Days</p>
         <MiniBarChart daily={daily} />
@@ -103,19 +113,24 @@ function Dashboard({ metrics }) {
 }
 
 export default function TraceList() {
-  const [traces, setTraces]         = useState([])
-  const [projects, setProjects]     = useState([])
-  const [metrics, setMetrics]       = useState(null)
-  const [activeProject, setActive]  = useState(() => localStorage.getItem('swt_project') || '')
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
+  const [traces, setTraces]        = useState([])
+  const [projects, setProjects]    = useState([])
+  const [metrics, setMetrics]      = useState(null)
+  const [activeProject, setActive] = useState(() => localStorage.getItem('swt_project') || '')
+  const [loading, setLoading]      = useState(true)
+  const [error, setError]          = useState(null)
+  const [wsConnected, setWsConnected] = useState(false)
 
-  const [search, setSearch]         = useState('')
-  const [statusFilter, setStatus]   = useState('')
-  const [agentFilter, setAgent]     = useState('')
+  const [search, setSearch]       = useState('')
+  const [statusFilter, setStatus] = useState('')
+  const [agentFilter, setAgent]   = useState('')
+
+  // Keep a ref to the socket so we can close it on unmount
+  const wsRef = useRef(null)
 
   const navigate = useNavigate()
 
+  // Load projects once on mount
   useEffect(() => {
     getProjects().then(r => {
       setProjects(r.data)
@@ -150,6 +165,27 @@ export default function TraceList() {
   useEffect(() => { fetchTraces() }, [fetchTraces])
   useEffect(() => { fetchMetrics() }, [fetchMetrics])
 
+  // C4: Open WebSocket on mount, close on unmount
+  useEffect(() => {
+    const ws = createTraceSocket((msg) => {
+      if (msg.type === 'TRACE_UPDATE') {
+        // Re-fetch the list and metrics so the new/updated trace appears
+        fetchTraces()
+        fetchMetrics()
+      }
+    })
+
+    ws.onopen  = () => setWsConnected(true)
+    ws.onclose = () => setWsConnected(false)
+
+    wsRef.current = ws
+
+    return () => {
+      ws.close()
+      wsRef.current = null
+    }
+  }, [fetchTraces, fetchMetrics])
+
   function handleProjectChange(projectId) {
     setActive(projectId)
     localStorage.setItem('swt_project', projectId)
@@ -165,6 +201,7 @@ export default function TraceList() {
           <p className="text-xs text-white/40 mt-0.5">Multi-agent observability platform</p>
         </div>
         <div className="flex items-center gap-4">
+          <LiveDot connected={wsConnected} />
           <select
             value={activeProject}
             onChange={e => handleProjectChange(e.target.value)}
@@ -190,8 +227,6 @@ export default function TraceList() {
       </div>
 
       <div className="px-8 py-6">
-
-        {/* Dashboard */}
         <Dashboard metrics={metrics} />
 
         <div className="flex flex-wrap gap-3 mb-5">
@@ -249,7 +284,7 @@ export default function TraceList() {
         {!loading && !error && traces.length === 0 && (
           <div className="text-center py-20 text-white/30">
             No traces found.
-            {activeProject ? ' Run your agent with this project\'s API key.' : ' Try clearing filters or run the swarm.'}
+            {activeProject ? " Run your agent with this project's API key." : ' Try clearing filters or run the swarm.'}
           </div>
         )}
 
