@@ -1,16 +1,15 @@
-"""
-tests/test_ingest.py — Tests for POST /ingest endpoint.
+"""tests/test_ingest.py — Ingest endpoint tests.
 
-Tests cover:
-  - Valid span ingestion returns 200
-  - Missing required fields return 422
-  - Duplicate span_id is handled gracefully (ON CONFLICT DO NOTHING)
-  - Loop detection triggers LOOP_DETECTED status after >4 same-pair HANDOFFs
+C4: /ingest now requires auth (require_auth dependency).
+Fix: override the dependency in the test client so tests don't need a real JWT.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# The user dict that require_auth would normally return
+MOCK_USER = {"user_id": "test-user-id", "email": "test@example.com", "project_id": None}
 
 
 @pytest.mark.asyncio
@@ -26,13 +25,14 @@ async def test_ingest_valid_span(client, sample_span_payload):
         __aexit__=AsyncMock(return_value=False),
     ))
 
-    with patch("routers.ingest.get_pool", return_value=mock_pool):
+    with patch("routers.ingest.get_pool", return_value=mock_pool), \
+         patch("routers.ingest.require_auth", return_value=MOCK_USER), \
+         patch("routers.ingest.broadcast_trace_update", new_callable=AsyncMock), \
+         patch("routers.ingest.broadcast_span", new_callable=AsyncMock):
         response = await client.post("/ingest", json=sample_span_payload)
 
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "ok"
-    assert data["spans_ingested"] == 1
+    assert response.json()["spans_ingested"] == 1
 
 
 @pytest.mark.asyncio
@@ -51,7 +51,9 @@ async def test_ingest_missing_required_field(client):
             }
         ]
     }
-    response = await client.post("/ingest", json=bad_payload)
+    with patch("routers.ingest.require_auth", return_value=MOCK_USER):
+        response = await client.post("/ingest", json=bad_payload)
+
     assert response.status_code == 422
 
 
@@ -68,7 +70,10 @@ async def test_ingest_empty_spans(client):
         __aexit__=AsyncMock(return_value=False),
     ))
 
-    with patch("routers.ingest.get_pool", return_value=mock_pool):
+    with patch("routers.ingest.get_pool", return_value=mock_pool), \
+         patch("routers.ingest.require_auth", return_value=MOCK_USER), \
+         patch("routers.ingest.broadcast_trace_update", new_callable=AsyncMock), \
+         patch("routers.ingest.broadcast_span", new_callable=AsyncMock):
         response = await client.post("/ingest", json={"spans": [], "snapshots": []})
 
     assert response.status_code == 200

@@ -6,16 +6,18 @@ in Neon Postgres. Also receives state_snapshots for time-travel replay.
 
 B2: project_id stamped on every trace from API key.
 B4: fire_alert() called when LOOP_DETECTED.
+C4: broadcast_trace_update() and broadcast_span() push to WebSocket clients.
 """
 
 import json
 
-from fastapi import APIRouter, Depends
-
 from alerting import fire_alert
 from auth.dependencies import require_auth
 from database import get_pool
+from fastapi import APIRouter, Depends
 from models import IngestRequest
+
+from routers.ws import broadcast_span, broadcast_trace_update
 
 _INPUT_COST_PER_M  = 0.59
 _OUTPUT_COST_PER_M = 0.79
@@ -45,6 +47,8 @@ async def ingest(
 
     async with pool.acquire() as conn:
         for span in request.spans:
+            root_agent = span.agent_name if span.parent_span_id is None else "orchestrator"
+
             await conn.execute(
                 """
                 INSERT INTO traces (trace_id, project_id, root_agent, status)
@@ -54,7 +58,7 @@ async def ingest(
                 """,
                 span.trace_id,
                 project_id,
-                span.agent_name if span.parent_span_id is None else "orchestrator",
+                root_agent,
             )
 
             cost = _calculate_cost(span.token_usage)
@@ -79,6 +83,22 @@ async def ingest(
                 cost,
             )
 
+            # C4: push to any open WebSocket connections
+            await broadcast_trace_update(span.trace_id, "RUNNING", root_agent)
+            await broadcast_span(span.trace_id, {
+                "span_id":        span.span_id,
+                "trace_id":       span.trace_id,
+                "parent_span_id": span.parent_span_id,
+                "agent_name":     span.agent_name,
+                "span_type":      span.span_type,
+                "input_payload":  span.input_payload,
+                "output_payload": span.output_payload,
+                "latency_ms":     span.latency_ms,
+                "token_usage":    span.token_usage,
+                "estimated_cost_usd": cost,
+                "children":       [],
+            })
+
             if span.span_type == "HANDOFF":
                 sender   = span.input_payload.get("sender", "")
                 receiver = span.input_payload.get("receiver", "")
@@ -98,6 +118,7 @@ async def ingest(
                         "UPDATE traces SET status = 'LOOP_DETECTED' WHERE trace_id = $1",
                         span.trace_id,
                     )
+                    await broadcast_trace_update(span.trace_id, "LOOP_DETECTED", root_agent)
                     await fire_alert(span.trace_id, "LOOP_DETECTED", project_id)
 
         for snap in request.snapshots:
