@@ -3,18 +3,21 @@ main.py — FastAPI application entry point.
 B1: Added auth + API key routes.
 B2: Added projects router.
 C4: Added WebSocket router for live streaming.
+C6: Added OTLP export router.
 """
 
 from contextlib import asynccontextmanager
 
-from database import apply_schema, close_pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from database import apply_schema, close_pool
 from routers import ingest, replay, traces
 from routers.alerts import router as alerts_router
 from routers.apikeys import router as apikeys_router
 from routers.auth import router as auth_router
 from routers.evaluate import router as evaluate_router
+from routers.export import router as export_router
 from routers.projects import router as projects_router
 from routers.ws import router as ws_router
 
@@ -48,13 +51,14 @@ app.add_middleware(
 # Public routes
 app.include_router(auth_router)
 
-# WebSocket routes (no JWT — connection auth happens via query param token)
+# WebSocket routes
 app.include_router(ws_router)
 
 # Protected REST routes
 app.include_router(projects_router)
 app.include_router(evaluate_router)
 app.include_router(alerts_router)
+app.include_router(export_router)
 app.include_router(ingest.router)
 app.include_router(traces.router)
 app.include_router(replay.router)
