@@ -55,6 +55,16 @@ async def apply_schema() -> None:
                 created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS project_members (
+                member_id   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+                project_id  UUID        REFERENCES projects(project_id) ON DELETE CASCADE,
+                user_id     UUID        REFERENCES users(user_id) ON DELETE CASCADE,
+                role        VARCHAR(20) NOT NULL DEFAULT 'developer',
+                invited_by  UUID        REFERENCES users(user_id),
+                created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (project_id, user_id)
+            );
+
             CREATE TABLE IF NOT EXISTS api_keys (
                 key_id       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
                 user_id      UUID         REFERENCES users(user_id) ON DELETE CASCADE,
@@ -132,6 +142,17 @@ async def apply_schema() -> None:
             ALTER TABLE traces   ADD COLUMN IF NOT EXISTS total_cost_usd     NUMERIC(10, 6);
             ALTER TABLE traces   ADD COLUMN IF NOT EXISTS project_id         UUID REFERENCES projects(project_id) ON DELETE SET NULL;
             ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id         UUID REFERENCES projects(project_id) ON DELETE CASCADE;
+        """)
+
+        # C1: seed admin role for existing project owners who predate project_members table
+        await conn.execute("""
+            INSERT INTO project_members (project_id, user_id, role)
+            SELECT p.project_id, p.user_id, 'admin'
+            FROM projects p
+            WHERE NOT EXISTS (
+                SELECT 1 FROM project_members pm
+                WHERE pm.project_id = p.project_id AND pm.user_id = p.user_id
+            );
         """)
 
     print("✅ Schema applied — all tables ready.")

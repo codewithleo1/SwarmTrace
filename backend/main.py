@@ -2,6 +2,7 @@
 main.py — FastAPI application entry point.
 B1: Added auth + API key routes.
 B2: Added projects router.
+C1: Added members router (RBAC).
 C4: Added WebSocket router for live streaming.
 C6: Added OTLP export router.
 """
@@ -18,6 +19,7 @@ from routers.apikeys import router as apikeys_router
 from routers.auth import router as auth_router
 from routers.evaluate import router as evaluate_router
 from routers.export import router as export_router
+from routers.members import router as members_router
 from routers.projects import router as projects_router
 from routers.ws import router as ws_router
 
@@ -32,7 +34,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SwarmTrace API",
     description="Multi-agent observability & time-travel debugging platform",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -56,6 +58,7 @@ app.include_router(ws_router)
 
 # Protected REST routes
 app.include_router(projects_router)
+app.include_router(members_router)
 app.include_router(evaluate_router)
 app.include_router(alerts_router)
 app.include_router(export_router)
@@ -67,4 +70,4 @@ app.include_router(apikeys_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "SwarmTrace", "version": "0.4.0"}
+    return {"status": "ok", "service": "SwarmTrace", "version": "0.5.0"}

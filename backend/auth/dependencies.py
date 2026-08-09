@@ -1,17 +1,26 @@
 """
-auth/dependencies.py — FastAPI dependencies for auth.
+auth/dependencies.py — FastAPI dependencies for auth and RBAC.
 
-Two dependency functions:
-  - get_current_user: validates JWT from Authorization header
-  - get_api_key_user: validates X-API-Key header for agent systems
+Three dependency functions for auth:
+  - get_current_user:  validates JWT from Authorization header
+  - get_api_key_user:  validates X-API-Key header for agent systems
+  - require_auth:      accepts either JWT or API key
 
-Why two?
-  Humans use JWT (short-lived, browser-friendly).
-  Agent systems use API keys (static, easy to put in .env).
-  Both return a user_id so downstream code doesn't care which was used.
+Three dependency factories for RBAC (C1):
+  - require_role(project_id, min_role):  base role checker
+  - require_admin(project_id):           admin only
+  - require_developer(project_id):       admin or developer
+  - require_viewer(project_id):          any member (admin/developer/viewer)
 
-B2: get_api_key_user now also returns project_id so /ingest can stamp
-    the correct project onto each trace automatically.
+Role hierarchy:  admin > developer > viewer
+  An admin can do everything a developer can, and everything a viewer can.
+  We implement this with a simple ordered list check.
+
+Why factories instead of fixed dependencies?
+  The project_id comes from the URL path, which isn't known at import time.
+  A factory function takes the project_id and returns a FastAPI dependency
+  that captures it in its closure. This is the standard FastAPI pattern for
+  dynamic dependencies.
 """
 
 from fastapi import Depends, HTTPException, Security, status
@@ -24,6 +33,11 @@ from database import get_pool
 bearer_scheme = HTTPBearer(auto_error=False)
 api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+# Role hierarchy — index = power level (higher = more permissions)
+_ROLE_LEVELS = {"viewer": 0, "developer": 1, "admin": 2}
+
+
+# ── Auth dependencies ──────────────────────────────────────────────────────────
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),  # noqa: B008
@@ -70,21 +84,20 @@ async def get_api_key_user(
             detail="Invalid API key",
         )
 
-    # Update last_used_at
     async with pool.acquire() as conn:
         await conn.execute("""
             UPDATE api_keys SET last_used_at = NOW() WHERE key_value = $1
         """, api_key)
 
     return {
-        "user_id": str(row["user_id"]),
-        "email": row["email"],
+        "user_id":    str(row["user_id"]),
+        "email":      row["email"],
         "project_id": str(row["project_id"]) if row["project_id"] else None,
     }
 
 
 async def require_auth(
-    jwt_user: dict = Depends(get_current_user),  # noqa: B008
+    jwt_user: dict = Depends(get_current_user),       # noqa: B008
     api_key_user: dict | None = Depends(get_api_key_user),  # noqa: B008
 ) -> dict:
     """
@@ -92,3 +105,78 @@ async def require_auth(
     Used on /ingest so agent systems can send spans without JWT.
     """
     return api_key_user or jwt_user
+
+
+# ── RBAC dependencies (C1) ────────────────────────────────────────────────────
+
+async def _get_member_role(project_id: str, user_id: str) -> str | None:
+    """
+    Look up the user's role in a project.
+    Returns the role string or None if the user is not a member.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT role FROM project_members
+            WHERE project_id = $1 AND user_id = $2
+        """, project_id, user_id)
+    return row["role"] if row else None
+
+
+def require_role(project_id_param: str, min_role: str = "viewer"):
+    """
+    Dependency factory — returns a FastAPI dependency that checks the user
+    has at least `min_role` in the given project.
+
+    Usage in a route:
+        @router.delete("/{project_id}/members/{member_id}")
+        async def remove_member(
+            project_id: str,
+            member_id: str,
+            user: dict = Depends(require_role("project_id", "admin")),
+        ):
+            ...
+
+    Args:
+        project_id_param: the name of the path parameter holding the project ID
+        min_role:         minimum role required ("viewer" | "developer" | "admin")
+    """
+    async def _check(
+        project_id: str,
+        user: dict = Depends(get_current_user),  # noqa: B008
+    ) -> dict:
+        role = await _get_member_role(project_id, user["user_id"])
+
+        if role is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this project",
+            )
+
+        required_level = _ROLE_LEVELS.get(min_role, 0)
+        actual_level   = _ROLE_LEVELS.get(role, -1)
+
+        if actual_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This action requires {min_role} role (you have {role})",
+            )
+
+        return {**user, "role": role, "project_id": project_id}
+
+    return _check
+
+
+def require_admin(project_id: str = "project_id"):
+    """Shorthand — require admin role in the project."""
+    return require_role(project_id, "admin")
+
+
+def require_developer(project_id: str = "project_id"):
+    """Shorthand — require developer or admin role."""
+    return require_role(project_id, "developer")
+
+
+def require_viewer(project_id: str = "project_id"):
+    """Shorthand — require any membership (viewer, developer, or admin)."""
+    return require_role(project_id, "viewer")
