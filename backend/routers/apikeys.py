@@ -1,15 +1,6 @@
 """
 routers/apikeys.py — API key management.
-
-POST   /api-keys        — generate a new API key (scoped to a project)
-GET    /api-keys        — list all keys for current user
-DELETE /api-keys/{id}  — revoke a key
-
-API keys start with swt_ for easy identification.
-Example: swt_a1b2c3d4e5f6...
-
-B2: Each key is now scoped to a project. When an agent sends spans using
-this key, the backend stamps project_id onto the trace automatically.
+C2: audit log calls added on create and revoke.
 """
 
 import secrets
@@ -20,13 +11,14 @@ from pydantic import BaseModel
 
 from auth.dependencies import get_current_user
 from database import get_pool
+from routers.audit import log_action
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
 
 class CreateKeyRequest(BaseModel):
     name: str
-    project_id: str  # which project this key ingests into
+    project_id: str
 
 
 @router.post("")
@@ -35,7 +27,6 @@ async def create_api_key(
     user: dict = Depends(get_current_user),  # noqa: B008
 ):
     """Generate a new API key scoped to a project."""
-    # Verify the project exists and belongs to this user
     pool = await get_pool()
     async with pool.acquire() as conn:
         project = await conn.fetchrow("""
@@ -55,12 +46,23 @@ async def create_api_key(
             VALUES ($1, $2, $3, $4, $5)
         """, key_id, user["user_id"], body.project_id, body.name, key_value)
 
+    # C2: audit
+    await log_action(
+        project_id=body.project_id,
+        user_id=user["user_id"],
+        user_email=user["email"],
+        action="API_KEY_CREATED",
+        resource_type="api_key",
+        resource_id=key_id,
+        metadata={"name": body.name},
+    )
+
     return {
-        "key_id": key_id,
-        "name": body.name,
+        "key_id":     key_id,
+        "name":       body.name,
         "project_id": body.project_id,
-        "key_value": key_value,
-        "message": "Copy this key now — it will not be shown again",
+        "key_value":  key_value,
+        "message":    "Copy this key now — it will not be shown again",
     }
 
 
@@ -92,6 +94,12 @@ async def revoke_api_key(
     """Revoke (deactivate) an API key."""
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Fetch key info before revoking so we can log it
+        key_row = await conn.fetchrow("""
+            SELECT project_id, name FROM api_keys
+            WHERE key_id = $1 AND user_id = $2
+        """, key_id, user["user_id"])
+
         result = await conn.execute("""
             UPDATE api_keys SET is_active = false
             WHERE key_id = $1 AND user_id = $2
@@ -99,5 +107,16 @@ async def revoke_api_key(
 
     if result == "UPDATE 0":
         raise HTTPException(status_code=404, detail="Key not found")
+
+    # C2: audit
+    await log_action(
+        project_id=str(key_row["project_id"]) if key_row and key_row["project_id"] else None,
+        user_id=user["user_id"],
+        user_email=user["email"],
+        action="API_KEY_REVOKED",
+        resource_type="api_key",
+        resource_id=key_id,
+        metadata={"name": key_row["name"] if key_row else None},
+    )
 
     return {"status": "revoked", "key_id": key_id}

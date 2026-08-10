@@ -1,12 +1,6 @@
 """
 routers/replay.py — POST /replay (Time-Travel Engine)
-
-How it works:
-  1. Load the state_snapshot at the requested step_number
-  2. Apply the user's overrides (e.g. changed prompt or tool output)
-  3. Resume the LangGraph swarm from that snapshot
-  4. Save the result as a new trace with parent_trace_id pointing to the original
-  5. Return the new trace_id so the frontend can show the forked run
+C2: audit log call added after successful fork.
 """
 
 import json
@@ -16,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 
 from database import get_pool
 from models import ReplayRequest
+from routers.audit import log_action
 
 router = APIRouter()
 
@@ -36,14 +31,32 @@ async def replay(request: ReplayRequest):
                 detail=f"No snapshot found at step {request.step_number} for trace {request.trace_id}",
             )
 
-        state_data = json.loads(snapshot["state_data"]) if isinstance(snapshot["state_data"], str) else dict(snapshot["state_data"])
+        state_data = (
+            json.loads(snapshot["state_data"])
+            if isinstance(snapshot["state_data"], str)
+            else dict(snapshot["state_data"])
+        )
         state_data.update(request.overrides)
 
         new_trace_id = uuid.uuid4().hex
+
         await conn.execute("""
             INSERT INTO traces (trace_id, root_agent, status, parent_trace_id)
             VALUES ($1, $2, 'RUNNING', $3)
         """, new_trace_id, snapshot["agent_name"], request.trace_id)
+
+    # Fetch project_id separately — safe against missing key in mock/real row
+    project_id = None
+    try:
+        async with pool.acquire() as conn:
+            orig_trace = await conn.fetchrow(
+                "SELECT project_id FROM traces WHERE trace_id = $1", request.trace_id
+            )
+        if orig_trace:
+            raw = orig_trace.get("project_id") if hasattr(orig_trace, "get") else orig_trace["project_id"]
+            project_id = str(raw) if raw else None
+    except Exception:  # noqa: BLE001
+        pass  # audit log is best-effort — don't block the replay
 
     from agents.orchestrator import resume_from_snapshot
 
@@ -60,9 +73,24 @@ async def replay(request: ReplayRequest):
             """, new_trace_id)
         raise HTTPException(status_code=500, detail=f"Replay failed: {e}") from e
 
+    # C2: audit — best-effort
+    await log_action(
+        project_id=project_id,
+        user_id="system",
+        user_email="replay@swarmtrace",
+        action="TRACE_REPLAY",
+        resource_type="trace",
+        resource_id=new_trace_id,
+        metadata={
+            "original_trace_id": request.trace_id,
+            "step_number":       request.step_number,
+            "overrides_keys":    list(request.overrides.keys()),
+        },
+    )
+
     return {
-        "status": "ok",
+        "status":            "ok",
         "original_trace_id": request.trace_id,
-        "forked_trace_id": new_trace_id,
-        "forked_from_step": request.step_number,
+        "forked_trace_id":   new_trace_id,
+        "forked_from_step":  request.step_number,
     }
