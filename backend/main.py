@@ -7,6 +7,7 @@ C2: Added audit log router.
 C3: Added retention router + auto-purge at startup.
 C4: Added WebSocket router for live streaming.
 C6: Added OTLP export router.
+C7: Added billing router + subscriptions table at startup.
 """
 
 from contextlib import asynccontextmanager
@@ -21,6 +22,8 @@ from routers.apikeys import router as apikeys_router
 from routers.audit import ensure_audit_table
 from routers.audit import router as audit_router
 from routers.auth import router as auth_router
+from routers.billing import ensure_subscriptions_table
+from routers.billing import router as billing_router
 from routers.evaluate import router as evaluate_router
 from routers.export import router as export_router
 from routers.members import router as members_router
@@ -33,9 +36,10 @@ from routers.ws import router as ws_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await apply_schema()
-    await ensure_audit_table()       # C2
-    await ensure_retention_table()   # C3
-    await purge_all_projects()       # C3 — runs on every startup (daily on Render)
+    await ensure_audit_table()          # C2
+    await ensure_retention_table()      # C3
+    await ensure_subscriptions_table()  # C7
+    await purge_all_projects()          # C3 — runs on every startup
     yield
     await close_pool()
 
@@ -43,7 +47,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SwarmTrace API",
     description="Multi-agent observability & time-travel debugging platform",
-    version="0.5.0",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -70,6 +74,7 @@ app.include_router(projects_router)
 app.include_router(members_router)
 app.include_router(audit_router)
 app.include_router(retention_router)
+app.include_router(billing_router)
 app.include_router(evaluate_router)
 app.include_router(alerts_router)
 app.include_router(export_router)
@@ -81,4 +86,4 @@ app.include_router(apikeys_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "SwarmTrace", "version": "0.5.0"}
+    return {"status": "ok", "service": "SwarmTrace", "version": "1.0.0"}
