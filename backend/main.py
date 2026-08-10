@@ -3,7 +3,8 @@ main.py — FastAPI application entry point.
 B1: Added auth + API key routes.
 B2: Added projects router.
 C1: Added members router (RBAC).
-C2: Added audit log router + ensure_audit_table at startup.
+C2: Added audit log router.
+C3: Added retention router + auto-purge at startup.
 C4: Added WebSocket router for live streaming.
 C6: Added OTLP export router.
 """
@@ -24,13 +25,17 @@ from routers.evaluate import router as evaluate_router
 from routers.export import router as export_router
 from routers.members import router as members_router
 from routers.projects import router as projects_router
+from routers.retention import ensure_retention_table, purge_all_projects
+from routers.retention import router as retention_router
 from routers.ws import router as ws_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await apply_schema()
-    await ensure_audit_table()   # C2: create audit_logs table if missing
+    await ensure_audit_table()       # C2
+    await ensure_retention_table()   # C3
+    await purge_all_projects()       # C3 — runs on every startup (daily on Render)
     yield
     await close_pool()
 
@@ -64,6 +69,7 @@ app.include_router(ws_router)
 app.include_router(projects_router)
 app.include_router(members_router)
 app.include_router(audit_router)
+app.include_router(retention_router)
 app.include_router(evaluate_router)
 app.include_router(alerts_router)
 app.include_router(export_router)
