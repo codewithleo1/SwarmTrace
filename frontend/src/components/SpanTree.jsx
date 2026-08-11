@@ -81,6 +81,8 @@ export default function SpanTree({ spans, onNodeClick }) {
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}
+        minZoom={0.3}
+        proOptions={{ hideAttribution: true }}
       >
         <Background color="#2a3a55" gap={24} size={1} />
         <Controls style={{ background: '#1a2235', border: '1px solid #2a3a55' }} />

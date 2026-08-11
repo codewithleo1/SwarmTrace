@@ -23,6 +23,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 INGEST_URL = os.getenv("INGEST_URL", "http://localhost:8000/ingest")
+API_KEY    = os.getenv("SWARMTRACE_API_KEY", "")
 
 
 def new_id() -> str:
@@ -63,15 +64,15 @@ class Span:
 
     def to_dict(self) -> dict:
         return {
-            "span_id": self.span_id,
-            "trace_id": self.trace_id,
+            "span_id":        self.span_id,
+            "trace_id":       self.trace_id,
             "parent_span_id": self.parent_span_id,
-            "agent_name": self.agent_name,
-            "span_type": self.span_type,
-            "input_payload": self.input_payload,
+            "agent_name":     self.agent_name,
+            "span_type":      self.span_type,
+            "input_payload":  self.input_payload,
             "output_payload": self.output_payload,
-            "latency_ms": self.latency_ms,
-            "token_usage": self.token_usage,
+            "latency_ms":     self.latency_ms,
+            "token_usage":    self.token_usage,
         }
 
 
@@ -79,13 +80,18 @@ def emit_spans(spans: list[Span], snapshots: list[dict] | None = None) -> None:
     """
     Send completed spans (and optional state snapshots) to the FastAPI /ingest endpoint.
     Uses httpx (sync) so agents don't need to be async.
+    B1: Sends X-API-Key header so /ingest auth is satisfied.
     """
     payload = {
-        "spans": [s.to_dict() for s in spans],
+        "spans":     [s.to_dict() for s in spans],
         "snapshots": snapshots or [],
     }
+    headers = {}
+    if API_KEY:
+        headers["X-API-Key"] = API_KEY
+
     try:
-        response = httpx.post(INGEST_URL, json=payload, timeout=10)
+        response = httpx.post(INGEST_URL, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
         print(f"📡 Emitted {len(spans)} span(s) to SwarmTrace")
     except httpx.HTTPError as e:

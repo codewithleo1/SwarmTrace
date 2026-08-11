@@ -30,5 +30,5 @@ Quickstart:
 
 from swarmtrace.tracer import Span, SwarmTracer
 
-__all__ = ["SwarmTracer", "Span"]
+__all__ = ["Span", "SwarmTracer"]
 __version__ = "0.1.0"
