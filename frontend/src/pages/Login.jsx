@@ -1,6 +1,7 @@
 /**
  * pages/Login.jsx — Login + Register page.
  * Single page with tab switcher between login and register forms.
+ * Added: "Try Demo" button for instant access without registration.
  */
 
 import { useState } from 'react'
@@ -38,6 +39,25 @@ export default function Login() {
     }
   }
 
+  async function handleDemo() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await login({ email: 'demo@swarmtrace.dev', password: 'demo1234' })
+      localStorage.setItem('swt_token', res.data.access_token)
+      localStorage.setItem('swt_user', JSON.stringify({
+        user_id: res.data.user_id,
+        email: res.data.email,
+        name: res.data.name,
+      }))
+      navigate('/')
+    } catch (e) {
+      setError('Demo login failed — please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -45,6 +65,21 @@ export default function Login() {
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-white">🔭 SwarmTrace</h1>
           <p className="text-sm text-white/40 mt-1">Multi-agent observability platform</p>
+        </div>
+
+        {/* Try Demo Banner */}
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 mb-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-blue-400">Try the live demo</p>
+            <p className="text-xs text-white/40 mt-0.5">No sign-up needed — instant access</p>
+          </div>
+          <button
+            onClick={handleDemo}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+          >
+            {loading ? '...' : 'Try Demo →'}
+          </button>
         </div>
 
         {/* Card */}
