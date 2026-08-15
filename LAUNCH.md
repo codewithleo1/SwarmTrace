@@ -1,92 +1,118 @@
 # SwarmTrace — Launch Copy
 
-> Ready-to-post copy for HackerNews and ProductHunt.
-> Post whenever you feel ready — ideally Tuesday–Thursday 9am ET for best visibility.
-
----
-
-## HackerNews — Show HN
-
-**Title:**
-Show HN: SwarmTrace – Open-source observability + time-travel debugger for AI agents
-
-**Body:**
-I built SwarmTrace to solve a problem I kept hitting: when a multi-agent AI pipeline fails,
-you have no idea which agent caused it, and you have to re-run the entire thing from scratch to test a fix.
-
-SwarmTrace records every agent action as a hierarchical OpenTelemetry span tree, then lets you
-"fork" execution from any past step — edit a prompt or tool output, and replay only the downstream
-agents. No re-running the full pipeline.
-
-Features:
-- Interactive span tree visualization (React Flow)
-- Time-travel replay — fork from any step, compare original vs forked runs side by side
-- LLM-as-a-judge — automatic quality scoring (relevance, reasoning, quality) per agent span
-- Cost tracking per span using Groq token pricing
-- Webhook alerts on FAILED or LOOP_DETECTED traces
-- Multi-tenancy — projects, scoped API keys
-- Dashboard metrics — success rate, avg latency, cost, daily chart
-- Self-hostable via Docker Compose
-
-Stack: FastAPI + asyncpg + Neon Postgres + LangGraph + React + @xyflow/react
-
-Live demo: https://swarm-trace.vercel.app
-GitHub: https://github.com/codewithleo1/SwarmTrace
-
-Would love feedback on the time-travel replay UX — is this useful for how you debug agents?
-
 ---
 
 ## ProductHunt
 
-**Tagline:**
-Time-travel debugging for AI agent pipelines
+### Name
+SwarmTrace
 
-**Description:**
-SwarmTrace is an open-source observability platform for multi-agent AI systems.
+### Tagline (60 chars max)
+Time-travel debugger for multi-agent AI pipelines
 
-When your AI pipeline fails, SwarmTrace shows you exactly which agent caused it —
-then lets you fork execution from that exact step, edit the prompt or output,
-and replay only the downstream agents. No re-running the full pipeline.
+### Description
+Debugging multi-agent LLM systems is painful. When a 4-agent pipeline fails, you don't know which agent caused it, logs are flat, and you have to re-run the entire workflow from scratch to test a fix.
 
-Key features:
-→ Interactive span tree — visualize every agent action as a hierarchical graph
-→ Time-travel replay — fork from any past step and compare runs side by side
-→ LLM-as-a-judge — automatic quality scoring per agent span
-→ Cost tracking — exact USD cost per span and per trace
-→ Webhook alerts — get notified on failures instantly
-→ Self-hostable — one command with Docker Compose
+SwarmTrace solves this with three things:
 
-Built with FastAPI, React, LangGraph, and OpenTelemetry.
-Free and open source.
+**1. Span Tree Visualisation**
+Every agent action is recorded as an OpenTelemetry span and rendered as an interactive graph. You can see exactly which agent ran, in what order, with what input and output — and how long each step took.
 
-**First comment (post this yourself on launch day):**
-Hey PH! Builder here.
+**2. Time-Travel Replay**
+Click any past step, edit the prompt or tool output, and replay only the downstream agents. No re-running from scratch. The forked run is saved as a new trace so you can compare both runs side by side.
 
-The core insight behind SwarmTrace: debugging multi-agent systems is fundamentally
-different from debugging regular code. The failure isn't a line number — it's an
-agent that made a bad decision 3 steps ago, and everything downstream compounded it.
+**3. LLM-as-Judge Evaluation**
+Each agent's output is automatically scored by a judge LLM. Scores surface which agents are failing and why — so you know where to focus.
 
-Time-travel replay lets you isolate exactly that step, change one thing, and see
-what would have happened — without re-running expensive LLM calls for the steps
-that already worked correctly.
+**Also includes:**
+- WebSocket live streaming — watch the span tree update in real time as agents run
+- OTLP export — compatible with Jaeger, Grafana Tempo, Datadog
+- PyPI SDK — `pip install swarmtrace` and instrument your agents in minutes
+- Full RBAC (admin/developer/viewer) and audit logs
+- Stripe-ready billing infrastructure
 
-Happy to answer any questions about the architecture or the time-travel replay
-engine specifically.
+**Try it now — no sign-up needed.**
+Click "Try Demo →" on the login page for instant access to a live trace.
+
+### First Comment (post this yourself immediately after launch)
+Hey PH! 👋 I'm Leo, I built SwarmTrace after spending way too many hours re-running entire agent pipelines just to debug one bad prompt.
+
+The core insight was: multi-agent debugging needs the same primitives as distributed systems tracing — parent-child span relationships, state snapshots at every step, and checkpoint-based replay. OpenTelemetry already solves this for microservices. SwarmTrace brings it to LLM agents.
+
+A few things I'd love feedback on:
+- Is time-travel replay the right mental model, or is there a better framing?
+- What's your biggest pain point when debugging multi-agent systems today?
+- Would you self-host this or prefer a managed cloud version?
+
+Live demo (no sign-up): https://swarm-trace.vercel.app
+GitHub: https://github.com/codewithleo1/SwarmTrace
+
+### Topics
+- Artificial Intelligence
+- Developer Tools
+- Open Source
+- LLM
+- Debugging
+
+### Links
+- Website: https://swarmtrace-landing.vercel.app
+- Demo: https://swarm-trace.vercel.app
+- GitHub: https://github.com/codewithleo1/SwarmTrace
 
 ---
 
-## Launch Checklist
+## Show HN (post when account karma > 10)
 
-Before posting:
-- [ ] Make sure swarm-trace.vercel.app is live and loads fast
-- [ ] Make sure the backend on Render is awake (visit /health first)
-- [ ] Run the swarm once to generate fresh traces for the demo
-- [ ] Have the GitHub README open — people will click straight to it
-- [ ] Post Tuesday–Thursday between 9am–12pm ET for best HN visibility
-- [ ] For ProductHunt — schedule the launch at 12:01am PT so you have a full day
+**Title:**
+Show HN: SwarmTrace – Debug multi-agent AI with time-travel replay
 
-After posting:
-- [ ] Reply to every comment within the first 2 hours
-- [ ] Share on LinkedIn and Twitter/X
-- [ ] Ask friends to upvote (ProductHunt allows this)
+**Body:**
+I built SwarmTrace because debugging multi-agent LLM pipelines is painful.
+When a 4-agent system fails, you don't know which agent caused it, logs
+are flat, and you have to re-run everything from scratch to test a fix.
+
+SwarmTrace records every agent action as an OpenTelemetry span tree,
+visualises it as an interactive graph, and lets you fork execution from
+any past step — edit a prompt or tool output and replay only the
+downstream agents.
+
+Live demo (no sign-up): https://swarm-trace.vercel.app
+GitHub: https://github.com/codewithleo1/SwarmTrace
+
+Stack: FastAPI + LangGraph + Neon Postgres + React Flow + Groq
+
+---
+
+## Reddit — r/LangChain (POSTED ✅)
+
+8 upvotes, 928 views, 3 comments as of Aug 12 2026.
+
+## Reddit — r/LocalLLaMA (REMOVED by mods)
+
+New account restriction. Retry after karma builds.
+
+## Reddit — r/MachineLearning (PENDING)
+
+Post after karma builds on r/LangChain.
+
+---
+
+## Key Messages (use across all channels)
+
+**One-liner:**
+SwarmTrace lets you fork a failing agent pipeline from any past step and replay only the downstream agents.
+
+**Problem:**
+When a 4-agent LLM pipeline fails, you don't know which agent caused it and have to re-run everything from scratch.
+
+**Solution:**
+OpenTelemetry span trees + time-travel state replay + LLM-as-judge evaluation.
+
+**Differentiator vs LangSmith/Langfuse:**
+They show you traces. SwarmTrace lets you replay and fix them — without re-running the whole pipeline.
+
+---
+
+## Demo Credentials (for sharing)
+URL: https://swarm-trace.vercel.app
+Click "Try Demo →" — no sign-up needed.
