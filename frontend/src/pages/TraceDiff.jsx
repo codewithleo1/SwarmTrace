@@ -1,12 +1,8 @@
 /**
  * pages/TraceDiff.jsx — Side-by-side diff of original vs forked trace.
  *
- * Accessed via /diff/:originalId/:forkedId
- * Shows two span trees side by side with:
- *   - Which agents ran in each
- *   - Latency delta (faster/slower)
- *   - Cost delta
- *   - Output changes highlighted
+ * Fix: if the "original" trace has no spans (it's itself a fork),
+ * walk up to its parent trace automatically so the diff is meaningful.
  */
 
 import { useEffect, useState } from 'react'
@@ -34,7 +30,7 @@ function DeltaBadge({ original, forked, unit = 'ms' }) {
   )
 }
 
-function SpanRow({ span, counterpart, side }) {
+function SpanRow({ span, counterpart }) {
   const hasChange = counterpart &&
     JSON.stringify(span.output_payload) !== JSON.stringify(counterpart.output_payload)
 
@@ -84,17 +80,39 @@ export default function TraceDiff() {
 
   const [original, setOriginal] = useState(null)
   const [forked, setForked]     = useState(null)
+  const [resolvedOriginalId, setResolvedOriginalId] = useState(originalId)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
 
   useEffect(() => {
-    Promise.all([getTrace(originalId), getTrace(forkedId)])
-      .then(([origRes, forkRes]) => {
-        setOriginal(origRes.data)
+    async function load() {
+      try {
+        const [origRes, forkRes] = await Promise.all([
+          getTrace(originalId),
+          getTrace(forkedId),
+        ])
+
+        let origData = origRes.data
+
+        // If original has no spans but has a parent, walk up to parent
+        if (
+          origData.span_tree.length === 0 &&
+          origData.trace.parent_trace_id
+        ) {
+          const parentRes = await getTrace(origData.trace.parent_trace_id)
+          origData = parentRes.data
+          setResolvedOriginalId(origData.trace.trace_id)
+        }
+
+        setOriginal(origData)
         setForked(forkRes.data)
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [originalId, forkedId])
 
   if (loading) return (
@@ -109,19 +127,9 @@ export default function TraceDiff() {
     </div>
   )
 
-  const origSpans  = flattenSpans(original.span_tree)
-  const forkSpans  = flattenSpans(forked.span_tree)
-
-  // Match spans by agent_name for comparison
+  const origSpans = flattenSpans(original.span_tree)
+  const forkSpans = flattenSpans(forked.span_tree)
   const matchSpan = (spans, agentName) => spans.find(s => s.agent_name === agentName)
-
-  const allAgents = [...new Set([
-    ...origSpans.map(s => s.agent_name),
-    ...forkSpans.map(s => s.agent_name),
-  ])]
-
-  const latencyDelta = (forked.trace.total_latency_ms || 0) - (original.trace.total_latency_ms || 0)
-  const costDelta    = (Number(forked.trace.total_cost_usd) || 0) - (Number(original.trace.total_cost_usd) || 0)
 
   return (
     <div className="min-h-screen bg-[#0a0e1a] text-white">
@@ -166,21 +174,26 @@ export default function TraceDiff() {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-semibold text-white/60 uppercase tracking-wider">Original</h2>
-            <span className="font-mono text-xs text-blue-400">{originalId.slice(0, 12)}...</span>
+            <span className="font-mono text-xs text-blue-400">{resolvedOriginalId.slice(0, 12)}...</span>
             <span className="text-xs text-white/40 font-mono">{original.trace.total_latency_ms}ms</span>
             {original.trace.total_cost_usd && (
               <span className="text-xs text-green-400 font-mono">${Number(original.trace.total_cost_usd).toFixed(6)}</span>
             )}
           </div>
           <div className="space-y-2">
-            {origSpans.map(span => (
-              <SpanRow
-                key={span.span_id}
-                span={span}
-                counterpart={matchSpan(forkSpans, span.agent_name)}
-                side="original"
-              />
-            ))}
+            {origSpans.length === 0 ? (
+              <div className="text-white/30 text-sm text-center py-10">
+                No spans recorded for this trace.
+              </div>
+            ) : (
+              origSpans.map(span => (
+                <SpanRow
+                  key={span.span_id}
+                  span={span}
+                  counterpart={matchSpan(forkSpans, span.agent_name)}
+                />
+              ))
+            )}
           </div>
         </div>
 
@@ -195,18 +208,28 @@ export default function TraceDiff() {
             )}
           </div>
           <div className="space-y-2">
-            {forkSpans.map(span => (
-              <SpanRow
-                key={span.span_id}
-                span={span}
-                counterpart={matchSpan(origSpans, span.agent_name)}
-                side="forked"
-              />
-            ))}
-            {forkSpans.length === 0 && (
-              <div className="text-white/30 text-sm text-center py-10">
-                No spans yet — replay may still be running.
+            {forkSpans.length === 0 ? (
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-6 text-center space-y-2">
+                <p className="text-yellow-400 text-sm font-semibold">⏳ Replay in progress</p>
+                <p className="text-white/40 text-xs">
+                  The forked pipeline is re-running downstream agents. 
+                  Refresh in a few seconds to see the results.
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-2 px-4 py-1.5 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 text-xs font-semibold transition-colors"
+                >
+                  Refresh
+                </button>
               </div>
+            ) : (
+              forkSpans.map(span => (
+                <SpanRow
+                  key={span.span_id}
+                  span={span}
+                  counterpart={matchSpan(origSpans, span.agent_name)}
+                />
+              ))
             )}
           </div>
         </div>

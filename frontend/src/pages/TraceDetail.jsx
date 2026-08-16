@@ -214,6 +214,7 @@ export default function TraceDetail() {
               <ReplayPanel
                 span={selectedSpan}
                 traceId={traceId}
+                parentTraceId={trace.parent_trace_id}
                 onReplayDone={handleReplayDone}
               />
               {selectedEval && <EvalPanel eval={selectedEval} />}

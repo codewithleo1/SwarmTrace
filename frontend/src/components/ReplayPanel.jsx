@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { postReplay } from '../api/client'
 
-export default function ReplayPanel({ span, traceId, onReplayDone }) {
+export default function ReplayPanel({ span, traceId, parentTraceId, onReplayDone }) {
   const [overrideText, setOverrideText] = useState(
     JSON.stringify(span?.output_payload || {}, null, 2)
   )
@@ -15,6 +15,10 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
 
   const stepMap = { researcher: 1, writer: 2, critic: 3 }
   const stepNumber = stepMap[span.agent_name] ?? 1
+
+  // Use parentTraceId if available (current trace is itself a fork),
+  // otherwise use traceId — ensures diff always compares a trace with spans
+  const diffSourceId = parentTraceId || traceId
 
   async function handleReplay() {
     setLoading(true)
@@ -90,9 +94,8 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
           <p className="text-xs text-white/40">
             Forked from step {result.forked_from_step} of original trace.
           </p>
-          {/* Compare Runs button — A4 */}
           <button
-            onClick={() => navigate(`/diff/${traceId}/${result.forked_trace_id}`)}
+            onClick={() => navigate(`/diff/${diffSourceId}/${result.forked_trace_id}`)}
             className="w-full py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors mt-1"
           >
             🔍 Compare Runs Side by Side
@@ -105,6 +108,21 @@ export default function ReplayPanel({ span, traceId, onReplayDone }) {
         <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3">
           <p className="text-xs text-red-400 font-semibold">❌ Replay failed</p>
           <p className="text-xs text-white/60 mt-1">{error}</p>
+        </div>
+      )}
+
+      {/* Judge scores */}
+      {span.judge_scores && (
+        <div className="rounded-lg border border-[#2a3a55] bg-[#0a0e1a] p-3 space-y-1">
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Judge Scores</p>
+          {Object.entries(span.judge_scores).map(([k, v]) => (
+            <div key={k} className="flex items-center justify-between">
+              <span className="text-xs text-white/60 capitalize">{k}</span>
+              <span className={`text-xs font-mono ${v >= 7 ? 'text-green-400' : 'text-red-400'}`}>
+                {v}/10
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
