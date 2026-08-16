@@ -14,10 +14,9 @@ B2: /traces now accepts project_id query param to scope results to a project.
 
 import json
 
-from fastapi import APIRouter, HTTPException
-
 from alerting import fire_alert
 from database import get_pool
+from fastapi import APIRouter, HTTPException
 from models import TraceListItem
 
 router = APIRouter()

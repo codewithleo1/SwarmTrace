@@ -25,11 +25,11 @@ Endpoints:
 import logging
 import os
 
+from auth.dependencies import require_role
+from database import get_pool
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from auth.dependencies import require_role
-from database import get_pool
 from routers.audit import log_action
 
 logger = logging.getLogger("swarmtrace.billing")

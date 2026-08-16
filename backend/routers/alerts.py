@@ -10,11 +10,10 @@ B4: When a trace status becomes FAILED or LOOP_DETECTED, SwarmTrace fires
     The fire_alert() function is called from ingest.py — not from here.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 from auth.dependencies import get_current_user
 from database import get_pool
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 

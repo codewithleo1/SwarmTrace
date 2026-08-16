@@ -11,12 +11,11 @@ import os
 
 import httpx
 from langchain_groq import ChatGroq
-
 from tracing.otel_setup import Span, emit_spans
 
 logger = logging.getLogger(__name__)
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+llm = ChatGroq(model="qwen/qwen3.6-27b", api_key=os.getenv("GROQ_API_KEY"))
 
 BACKEND_URL = os.getenv("INGEST_URL", "http://localhost:8000").replace("/ingest", "")
 

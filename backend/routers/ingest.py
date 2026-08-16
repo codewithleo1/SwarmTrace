@@ -11,12 +11,12 @@ C4: broadcast_trace_update() and broadcast_span() push to WebSocket clients.
 
 import json
 
-from fastapi import APIRouter, Depends
-
 from alerting import fire_alert
 from auth.dependencies import require_auth
 from database import get_pool
+from fastapi import APIRouter, Depends
 from models import IngestRequest
+
 from routers.ws import broadcast_span, broadcast_trace_update
 
 _INPUT_COST_PER_M  = 0.59

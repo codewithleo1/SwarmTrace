@@ -23,10 +23,9 @@ import json
 import time
 from datetime import UTC
 
+from database import get_pool
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, Response
-
-from database import get_pool
 
 router = APIRouter(prefix="/export", tags=["export"])
 

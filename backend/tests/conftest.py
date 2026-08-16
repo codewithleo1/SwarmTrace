@@ -10,7 +10,6 @@ The correct approach is app.dependency_overrides[require_auth] = lambda: MOCK_US
 
 import httpx
 import pytest
-
 from auth.dependencies import require_auth
 from main import app
 

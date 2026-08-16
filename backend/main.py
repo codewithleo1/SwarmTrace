@@ -12,10 +12,9 @@ C7: Added billing router + subscriptions table at startup.
 
 from contextlib import asynccontextmanager
 
+from database import apply_schema, close_pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from database import apply_schema, close_pool
 from routers import ingest, replay, traces
 from routers.alerts import router as alerts_router
 from routers.apikeys import router as apikeys_router

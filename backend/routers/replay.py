@@ -6,10 +6,10 @@ C2: audit log call added after successful fork.
 import json
 import uuid
 
-from fastapi import APIRouter, HTTPException
-
 from database import get_pool
+from fastapi import APIRouter, HTTPException
 from models import ReplayRequest
+
 from routers.audit import log_action
 
 router = APIRouter()

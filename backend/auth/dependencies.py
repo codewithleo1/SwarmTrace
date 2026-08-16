@@ -2,12 +2,12 @@
 auth/dependencies.py — FastAPI dependencies for auth and RBAC.
 """
 
+from database import get_pool
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
 from auth.utils import decode_token
-from database import get_pool
 
 bearer_scheme = HTTPBearer(auto_error=False)
 api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)

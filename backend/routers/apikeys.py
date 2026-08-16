@@ -6,11 +6,11 @@ C2: audit log calls added on create and revoke.
 import secrets
 import uuid
 
+from auth.dependencies import get_current_user
+from database import get_pool
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from auth.dependencies import get_current_user
-from database import get_pool
 from routers.audit import log_action
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])

@@ -9,7 +9,7 @@ Why LLM-as-a-judge?
   scores on every agent output — relevance, reasoning, quality — so you
   can catch regressions automatically rather than reading logs manually.
 
-The judge model is the same Groq llama-3.3-70b-versatile we already use.
+The judge model is the same Groq qwen/qwen3.6-27b we already use.
 No extra API keys needed.
 """
 
@@ -17,14 +17,13 @@ import json
 import os
 import uuid
 
+from database import get_pool
 from fastapi import APIRouter, HTTPException
 from groq import Groq
 
-from database import get_pool
-
 router = APIRouter()
 
-_JUDGE_MODEL = "llama-3.3-70b-versatile"
+_JUDGE_MODEL = "qwen/qwen3.6-27b"
 _PASS_THRESHOLD = 6.0  # overall score >= 6 → PASS
 
 _JUDGE_PROMPT = """You are an expert AI system evaluator.

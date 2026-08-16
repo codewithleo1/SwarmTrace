@@ -8,10 +8,9 @@ AGENT_REASONING span, and returns findings to the orchestrator.
 import os
 
 from langchain_groq import ChatGroq
-
 from tracing.otel_setup import Span, emit_spans
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+llm = ChatGroq(model="qwen/qwen3.6-27b", api_key=os.getenv("GROQ_API_KEY"))
 
 
 def run_researcher(trace_id: str, parent_span_id: str, topic: str, step_number: int) -> tuple[str, str, dict]:

@@ -5,11 +5,11 @@ C2: audit log calls added on invite, role change, and remove.
 
 import uuid
 
+from auth.dependencies import require_role
+from database import get_pool
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from auth.dependencies import require_role
-from database import get_pool
 from routers.audit import log_action
 
 router = APIRouter()

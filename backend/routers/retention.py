@@ -25,11 +25,11 @@ Why NUMERIC(4) for max_days?
 import logging
 from datetime import UTC, datetime
 
+from auth.dependencies import require_role
+from database import get_pool
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from auth.dependencies import require_role
-from database import get_pool
 from routers.audit import log_action
 
 logger = logging.getLogger("swarmtrace.retention")

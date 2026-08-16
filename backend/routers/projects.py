@@ -11,11 +11,10 @@ C1: Creator is automatically added as admin in project_members on creation.
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 from auth.dependencies import get_current_user
 from database import get_pool
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 

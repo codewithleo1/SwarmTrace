@@ -33,10 +33,9 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends
-
 from auth.dependencies import require_role
 from database import get_pool
+from fastapi import APIRouter, Depends
 
 logger = logging.getLogger("swarmtrace.audit")
 
