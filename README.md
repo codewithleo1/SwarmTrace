@@ -5,9 +5,10 @@
 
 [![Live Demo](https://img.shields.io/badge/Live-swarm--trace.vercel.app-4F46E5?style=flat&logo=vercel)](https://swarm-trace.vercel.app)
 [![Backend](https://img.shields.io/badge/API-swarmtrace--backend.onrender.com-10b981?style=flat&logo=render)](https://swarmtrace-backend.onrender.com/health)
-[![Tests](https://img.shields.io/badge/Tests-18%2F18%20passing-22c55e?style=flat&logo=pytest)](./backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-17%2F17%20passing-22c55e?style=flat&logo=pytest)](./backend/tests)
 [![Python](https://img.shields.io/badge/Python-3.12-3b82f6?style=flat&logo=python)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-8b5cf6?style=flat)](./LICENSE)
+[![ProductHunt](https://img.shields.io/badge/Product%20Hunt-Launched-DA552F?style=flat&logo=producthunt)](https://www.producthunt.com/products/swarmtrace)
 
 ---
 
@@ -24,30 +25,26 @@ When a multi-agent AI system fails, debugging is painful:
 
 ---
 
-## What SwarmTrace Does
+## Demo Video
 
-1. **Records every agent action** as a hierarchical span tree using OpenTelemetry primitives
-2. **Visualises the execution tree** as an interactive graph with per-node latency and token usage
-3. **Lets you fork execution** from any past step — edit a prompt or tool output and replay only the downstream agents
+[![SwarmTrace Demo](https://img.youtube.com/vi/t0oY32DjIiE/maxresdefault.jpg)](https://youtu.be/t0oY32DjIiE)
+
+🌐 **[Try Live Demo — no sign-up needed](https://swarm-trace.vercel.app)**  
+Click **"Try Demo →"** on the login page for instant access.
 
 ---
 
-## Live Demo
+## How It Works
 
-🌐 **[swarm-trace.vercel.app](https://swarm-trace.vercel.app)**
+![Time-Travel Replay](./docs/screenshots/time-travel-replay.png)
 
-### Trace List — All Agent Runs at a Glance
-![Trace List](./docs/screenshots/trace-list.png)
-
-### Span Tree — Interactive Execution Graph
-![Span Tree](./docs/screenshots/span-tree.png)
-
-### Time-Travel Replay — Fork From Any Step
-![Replay Panel](./docs/screenshots/replay-panel.png)
+Fork from any past step, change a prompt or output, and replay only the downstream agents.
 
 ---
 
 ## Key Features
+
+![Span Tree](./docs/screenshots/span-tree-marketing.png)
 
 ### 🔭 OpenTelemetry-Compatible Tracing
 Every agent action is wrapped in an OTel span recording start time, end time, input payload, output payload, token usage, and parent-child relationships. Uses the same primitives as Datadog, Honeycomb, and Jaeger.
@@ -58,14 +55,19 @@ React Flow graph showing the full execution tree — colour-coded by agent, anno
 ### ⏱ Time-Travel State Replay
 The platform snapshots the complete LangGraph state after every agent step. When you fork from step 2, only the Writer and Critic re-run — the Researcher's work is preserved. No wasted API calls.
 
+### ⚖️ LLM-as-Judge Evaluation
+Each agent's output is automatically scored by a judge LLM across Relevance, Reasoning, and Quality dimensions. Surfaces FAIL scores instantly — even when the pipeline shows SUCCESS.
+
+![Trace List](./docs/screenshots/trace-list-marketing.png)
+
 ### 🔄 Forked Trace Comparison
-Every forked run creates a new trace with `parent_trace_id` pointing to the original. View both runs in the trace list and compare them side by side.
+Every forked run creates a new trace with `parent_trace_id` pointing to the original. View both runs side by side with latency delta, cost delta, and output diffs highlighted.
 
 ### 🔁 Loop Detection
 After each HANDOFF span, the backend checks how many times the same sender→receiver pair has appeared. If count > 4, the trace is marked `LOOP_DETECTED` and the run is stopped automatically.
 
 ### 🔌 Framework-Agnostic Instrumentation
-Drop one file into any Python project. Works with LangGraph, LangChain, CrewAI, raw OpenAI/Groq calls, or any custom agent system.
+Works with LangGraph, LangChain, CrewAI, raw OpenAI/Groq calls, or any custom agent system.
 
 ```python
 from tracing.otel_setup import Span, emit_spans
@@ -79,6 +81,8 @@ emit_spans([span])
 ---
 
 ## Architecture
+
+![How It Works](./docs/screenshots/how-it-works.png)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -113,7 +117,7 @@ emit_spans([span])
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| LLM | Groq (llama-3.3-70b-versatile) | 500+ tok/sec, free tier, 14,400 req/day |
+| LLM | Groq (qwen/qwen3.6-27b) | Fast inference, free tier |
 | Agent Framework | LangGraph | Explicit state graph → snapshottable + replayable |
 | Backend | FastAPI + asyncpg | Async-first, 3x faster than psycopg2 |
 | Database | Neon Postgres | JSONB support for payloads, free tier, persistent |
@@ -176,6 +180,8 @@ CREATE TABLE state_snapshots (
 | `GET` | `/trace/{id}` | Full span tree for one trace |
 | `PATCH` | `/traces/{id}/complete` | Mark trace SUCCESS + calculate latency |
 | `POST` | `/replay` | Time-travel: fork from step N + re-execute |
+| `POST` | `/evaluate/{id}` | Run LLM-as-judge on all spans |
+| `GET` | `/export/otlp/{id}` | Export trace in OTLP format |
 
 ---
 
@@ -203,38 +209,6 @@ Forked run:    [Researcher output overridden]
 
 ---
 
-## Connecting to Your Own Project
-
-Copy `backend/tracing/otel_setup.py` into your project. Add `INGEST_URL` to your `.env`. Wrap your LLM calls:
-
-```python
-import uuid
-from tracing.otel_setup import Span, emit_spans
-
-async def my_agent(user_message: str):
-    trace_id = uuid.uuid4().hex
-
-    span = Span(
-        trace_id=trace_id,
-        agent_name="my_agent",
-        span_type="AGENT_REASONING",
-        input_payload={"message": user_message},
-    )
-
-    response = await llm.invoke(user_message)
-
-    span.end(
-        output_payload={"response": response.content},
-        token_usage={"prompt_tokens": 100, "completion_tokens": 200},
-    )
-    emit_spans([span])
-    return response
-```
-
-Every run now appears in your SwarmTrace dashboard automatically.
-
----
-
 ## Local Development
 
 ### Prerequisites
@@ -256,10 +230,11 @@ Create `backend/.env`:
 GROQ_API_KEY=gsk_...
 DATABASE_URL=postgresql://user:pass@host/dbname?sslmode=require
 INGEST_URL=http://127.0.0.1:8000/ingest
+SWARMTRACE_API_KEY=swt_...
 ```
 
 ```powershell
-uv run python check_db.py       # verify DB connection
+uv run python check_db.py         # verify DB connection
 uv run uvicorn main:app --reload  # start server
 ```
 
@@ -269,17 +244,11 @@ uv run uvicorn main:app --reload  # start server
 uv run python -c "from agents.orchestrator import run_swarm; run_swarm('Your topic here')"
 ```
 
-### Seed demo data
-
-```powershell
-uv run python seed_demo_data.py
-```
-
 ### Tests
 
 ```powershell
 uv run pytest tests/ -v
-# 18/18 passing
+# 17/17 passing
 ```
 
 ### Frontend
@@ -299,32 +268,8 @@ npm run dev
 |---------|-----|
 | Frontend | [swarm-trace.vercel.app](https://swarm-trace.vercel.app) |
 | Backend | [swarmtrace-backend.onrender.com](https://swarmtrace-backend.onrender.com/health) |
+| Landing | [swarmtrace-landing.vercel.app](https://swarmtrace-landing.vercel.app) |
 | Database | Neon Postgres (ap-southeast-1) |
-
-Backend auto-deploys from `main` branch via `render.yaml`.  
-Frontend auto-deploys from `main` branch via Vercel.
-
----
-
-## Roadmap
-
-- [x] OTel-compatible span tracing
-- [x] Interactive span tree graph
-- [x] Time-travel state replay
-- [x] Loop detection
-- [x] Forked trace comparison
-- [x] 18/18 tests passing
-- [x] Deployed on Render + Vercel
-- [ ] Cost tracking per trace
-- [ ] Search + filter on trace list
-- [ ] JWT auth + API keys
-- [ ] Multi-tenancy (projects/workspaces)
-- [ ] LLM-as-a-judge evaluations
-- [ ] Alerting (email/webhook on failures)
-- [ ] Dashboard metrics + charts
-- [ ] Docker Compose for self-hosting
-- [ ] PyPI SDK (`pip install swarmtrace`)
-- [ ] OTLP export (Jaeger/Datadog compatible)
 
 ---
 
@@ -334,13 +279,43 @@ Frontend auto-deploys from `main` branch via Vercel.
 |---------|-----------|----------|----------|------------|
 | Span tracing | ✅ | ✅ | ✅ | ✅ |
 | Interactive graph UI | ✅ | ✅ | ✅ | ✅ |
+| LLM-as-judge eval | ✅ | ✅ | ❌ | ✅ |
 | Time-travel replay | ❌ | ❌ | ✅ | ✅ |
 | State snapshot forking | ❌ | ❌ | ❌ | ✅ |
-| Framework-agnostic | ⚠️ | ✅ | ✅ | ✅ |
+| Forked trace diff | ❌ | ❌ | ❌ | ✅ |
+| OTLP export | ⚠️ | ✅ | ❌ | ✅ |
+| WebSocket live streaming | ❌ | ❌ | ❌ | ✅ |
 | Self-hostable | ❌ | ✅ | ❌ | 🔜 |
 | Open source | ❌ | ✅ | ❌ | ✅ |
 
 SwarmTrace's core differentiator: **state-snapshot time-travel replay**. No major competitor lets you fork execution from an arbitrary past step and replay only the downstream agents without re-running the entire pipeline.
+
+---
+
+## Roadmap
+
+- [x] OTel-compatible span tracing
+- [x] Interactive span tree graph
+- [x] Time-travel state replay
+- [x] Loop detection
+- [x] Forked trace comparison (side-by-side diff)
+- [x] LLM-as-judge evaluation
+- [x] Cost tracking per trace
+- [x] Search + filter on trace list
+- [x] JWT auth + API keys
+- [x] Multi-tenancy (projects/workspaces)
+- [x] Alerting (webhook on failures)
+- [x] Dashboard metrics + charts
+- [x] PyPI SDK (`pip install swarmtrace`)
+- [x] OTLP export (Jaeger/Datadog compatible)
+- [x] WebSocket live streaming
+- [x] Full RBAC (admin/developer/viewer)
+- [x] Audit logs (ISO 27001)
+- [x] 17/17 tests passing
+- [ ] Auto-triage (surface failing patterns across runs)
+- [ ] Docker Compose for self-hosting
+- [ ] Braintrust integration
+- [ ] Step-level grading patterns
 
 ---
 
@@ -350,6 +325,7 @@ SwarmTrace's core differentiator: **state-snapshot time-travel replay**. No majo
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Suraj_Chopade-0A66C2?style=flat&logo=linkedin)](https://linkedin.com/in/suraj-4b9323268)
 [![GitHub](https://img.shields.io/badge/GitHub-codewithleo1-181717?style=flat&logo=github)](https://github.com/codewithleo1)
+[![YouTube](https://img.shields.io/badge/Demo-YouTube-FF0000?style=flat&logo=youtube)](https://youtu.be/t0oY32DjIiE)
 
 ---
 
