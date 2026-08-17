@@ -1,11 +1,11 @@
 # SwarmTrace — Build Progress Log
 
-> Updated after every completed step.  
+> Updated after every completed step.
 > Rule: Commit working code before extending. Never re-introduce a Gotcha bug.
 
 ---
 
-## Project Status: ✅ Phase A Complete | 🟡 Phase B Next
+## Project Status: ✅ Launched | 🟡 V2 Planning
 
 | Phase | Title | Status |
 |-------|-------|--------|
@@ -16,167 +16,149 @@
 | 5 | React Frontend (Span Tree + Replay UI) | ✅ Complete |
 | A | Portfolio Polish | ✅ Complete |
 | B | Open Source Tool | ✅ Complete |
-| C | Enterprise SaaS | ⬜ Planned |
-
+| C | Enterprise SaaS | ✅ Complete |
+| D | Launch | ✅ Complete |
+| E | V2 Features | 🟡 Planning |
 
 ---
 
 ## Live URLs
 - **Frontend:** https://swarm-trace.vercel.app
 - **Backend:** https://swarmtrace-backend.onrender.com
+- **Landing:** https://swarmtrace-landing.vercel.app
 - **Health:** https://swarmtrace-backend.onrender.com/health
+- **API Docs:** https://swarmtrace-backend.onrender.com/docs
 - **GitHub:** https://github.com/codewithleo1/SwarmTrace
+- **YouTube Demo:** https://youtu.be/t0oY32DjIiE
+- **ProductHunt:** https://www.producthunt.com/products/swarmtrace
 
 ---
 
-## Phase A — Portfolio Polish
+## Phase C — Enterprise SaaS ✅
 
-### Checklist
-- [x] A1: README with screenshots and badges committed to GitHub
-- [x] A2: Cost tracking per span/trace (estimated_cost_usd columns, Groq pricing applied)
-- [x] A3: Search and filter on trace list (status, agent, trace ID)
-- [x] A4: Trace diff view — side-by-side comparison of original vs forked
-- [x] A5: Cron job keep-alive (cron-job.org, every 14 mins → /health)
-- [x] A6: PROGRESS.md fully updated
-
-### Notes
-- Groq llama-3.3-70b-versatile pricing: $0.59/M input, $0.79/M output
-- Each swarm run costs approximately $0.001
-- New columns added via ALTER TABLE (check_db.py uses IF NOT EXISTS — won't auto-add new cols)
-- TraceDiff page at /diff/:originalId/:forkedId
-- Compare Runs button appears in ReplayPanel after successful fork
+| Item | Feature | Status |
+|------|---------|--------|
+| C8 | Landing page (swarmtrace-landing.vercel.app) | ✅ |
+| C4 | WebSocket live streaming (/ws/traces, /ws/trace/{id}) | ✅ |
+| C5 | PyPI SDK (sdk/ — SwarmTracer, async_span, trace decorator) | ✅ |
+| C6 | OTLP export (/export/otlp/{trace_id}, Jaeger/Datadog compatible) | ✅ |
+| C1 | Full RBAC (project_members table, admin/developer/viewer) | ✅ |
+| C2 | Audit logs (audit_logs table, log_action helper, GET /audit/{id}) | ✅ |
+| C3 | Data retention (retention_policies, purge endpoint, auto-purge startup) | ✅ |
+| C7 | Billing infrastructure (subscriptions table, plan definitions, Stripe-ready) | ✅ |
 
 ---
 
-## Phase B — Open Source Tool (In Progress)
+## Phase D — Launch ✅
 
-### Checklist
-- [x] B1: JWT Auth + API keys (users, api_keys tables, /auth/* routes, PrivateRoute, Settings page)
-- [x] B2: Multi-tenancy — projects/workspaces (projects table, project_id on traces + api_keys, project selector in UI)
-- [x] B3: LLM-as-a-judge evaluations (per-span scores, verdict, judge summary bar in TraceDetail)
-- [x] B4: Alerting — webhook fires on FAILED/LOOP_DETECTED, config UI in Settings
-- [x] B5: Dashboard metrics — metric cards (total traces, success rate, avg latency, cost) + daily bar chart
-- [x] B6: Docker Compose for self-hosting
-- [x] B7: Launch copy written — Show HN + ProductHunt ready in LAUNCH.md
-
----
-
-## Phase C — Enterprise SaaS (Planned)
-
-### Checklist
-- [ ] C1: Full RBAC (Admin / Developer / Viewer)
-- [ ] C2: Audit logs (ISO 27001 compliant)
-- [ ] C3: Data retention controls
-- [ ] C4: WebSocket live streaming
-- [ ] C5: PyPI SDK (pip install swarmtrace)
-- [ ] C6: OTLP export (Jaeger/Datadog compatible)
-- [ ] C7: Stripe billing
-- [ ] C8: Landing page
+| Item | Channel | Status |
+|------|---------|--------|
+| D1 | otel_setup.py X-API-Key header fix | ✅ |
+| D2 | Guest demo login ("Try Demo →" button) | ✅ |
+| D3 | demo@swarmtrace.dev / demo1234 user created | ✅ |
+| D4 | React Flow attribution hidden, minZoom=0.3 | ✅ |
+| D5 | r/LangChain post — 9 upvotes, 2.4K views | ✅ |
+| D6 | r/Observability post | ✅ |
+| D7 | r/crewai post | ✅ |
+| D8 | r/aiagents post | ✅ |
+| D9 | ProductHunt launch — live with gallery images + video | ✅ |
+| D10 | YouTube demo video — https://youtu.be/t0oY32DjIiE | ✅ |
+| D11 | LinkedIn native video post | ✅ |
+| D12 | GitHub README updated with marketing images | ✅ |
+| D13 | Groq model migration — llama-3.3-70b-versatile → qwen/qwen3.6-27b | ✅ |
+| D14 | TraceDiff fixed — walks up to parent trace when original has no spans | ✅ |
+| D15 | ReplayPanel fixed — uses correct parent trace ID for diff | ✅ |
+| D16 | Judge scores shown in ReplayPanel | ✅ |
 
 ---
 
-## Phase 1 — Project Setup & Database ✅
+## Phase E — V2 Features 🟡 Planning
 
-### Notes
-- Neon gives a pooler URL with channel_binding=require — remove that param and remove -pooler from hostname
-- asyncpg requires plain postgresql:// not postgresql+asyncpg://
-- Connected to PostgreSQL 18.4 on Neon ap-southeast-1
+Collecting community feedback for 1 week before building.
 
----
-
-## Phase 2 — Demo Multi-Agent Swarm + OTel Tracing ✅
-
-### Notes
-- All 4 agents running: orchestrator → researcher → writer → critic
-- OTel spans emitted via HTTP POST to /ingest
-- INGEST_URL must use 127.0.0.1 not localhost on Windows
+| Priority | Feature | Source |
+|----------|---------|--------|
+| P1 | Auto-triage — surface failing patterns across runs | SpecialChance8662, AdAdmirable4994 |
+| P2 | Fix trace status bug — SUCCESS even when judge scores FAIL | Self-identified |
+| P3 | Braintrust integration — push replayed failures to regression sets | AdAdmirable4994 |
+| P4 | Docker Compose self-hosting | redouanea |
+| P5 | Step-level grading patterns across many runs | SpecialChance8662 |
+| P6 | Replay actually re-runs agents on Render | Self-identified |
 
 ---
 
-## Phase 3 — FastAPI Backend ✅
+## Community Feedback Summary
 
-### Notes
-- All endpoints working: /ingest, /traces, /trace/{id}, /replay, /health
-- PATCH /traces/{id}/complete sums latency and cost across spans
-- Loop detection fires after >4 same-pair HANDOFF spans
+**r/LangChain (9 upvotes, 2.4K views):**
+- redouanea: login wall, UI polish, avoid relational DB early
+- SpecialChance8662: triage before replay, step-level grading (DM sent)
+- AdAdmirable4994: Braintrust integration for regression eval sets
+- ar_tyom2000: similar project LangGraphics (complementary)
 
----
+**r/Observability:**
+- IntelligentPear6173: how does replay handle nondeterminism? (answered)
+- kolbeyang: differentiation vs Braintrust/Langfuse/Laminar (answered)
 
-## Phase 4 — Time-Travel Replay Engine ✅
+**r/aiagents:**
+- New_Razzmatazz_3611: nondeterministic tool calls during replay (answered)
+- Salty_1984: would save time on long agent runs (answered)
 
-### Notes
-- POST /replay loads snapshot → injects overrides → resumes swarm from that step
-- Forked trace has parent_trace_id pointing to original
-- Only downstream agents re-run — no wasted API calls
-
----
-
-## Phase 5 — React Frontend ✅
-
-### Notes
-- React Flow span tree with colour-coded nodes
-- ReplayPanel opens on node click — editable output, Fork & Replay button
-- TraceDiff at /diff/:originalId/:forkedId shows side-by-side comparison
+**r/Python:**
+- Known-Wish-9164: starred repo, asked about state mutations during fork (answered)
 
 ---
 
-## Tests
-- 18/18 passing
-- Run: `uv run pytest tests/ -v`
+## Demo Credentials
+- URL: https://swarm-trace.vercel.app
+- Click "Try Demo →" — no sign-up needed
+- Or: demo@swarmtrace.dev / demo1234
 
 ---
 
-## Gotchas — Read Before Every Coding Session
+## Backend Version History
 
-### G-001 | PowerShell does not support `&&`
-- **Fix:** Always write commands on separate lines
-
-### G-002 | Never use raw `python` command
-- **Fix:** Always prefix with `uv run`
-
-### G-003 | Neon connection string needs cleaning before use with asyncpg
-- **Fix:** Remove `-pooler` from hostname, remove `&channel_binding=require`, use plain `postgresql://`
-
-### G-004 | `.env` must never be committed
-- **Fix:** `.env` is in `.gitignore` from day one
-
-### G-005 | Ruff must pass before every commit
-- **Fix:** Run `uv run ruff check --fix`
-
-### G-006 | asyncpg DSN must use plain `postgresql://` not `postgresql+asyncpg://`
-- **Fix:** Raw asyncpg takes `postgresql://` directly. `postgresql+asyncpg://` is SQLAlchemy only.
-
-### G-007 | `CREATE TABLE IF NOT EXISTS` does not add new columns
-- **Fix:** New columns always need explicit `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
-
-### G-008 | INGEST_URL must use `127.0.0.1` not `localhost` on Windows
-- **Fix:** Add `INGEST_URL=http://127.0.0.1:8000/ingest` to `backend/.env`
-
-### G-009 | Render free tier sleeps after 15 min inactivity
-- **Fix:** Set up cron-job.org to ping /health every 14 minutes
+| Version | Phase | Key additions |
+|---------|-------|--------------|
+| 0.2.0 | B1 | JWT auth, API keys |
+| 0.3.0 | B2-B5 | Projects, evals, alerts, metrics |
+| 0.4.0 | C4, C6 | WebSocket, OTLP export |
+| 0.5.0 | C1-C3, C7 | RBAC, audit, retention, billing |
+| 1.0.0 | C complete | Full enterprise feature set |
+| 1.1.0 | D | Guest login, model migration, TraceDiff fix |
 
 ---
 
-## Decisions Log
+## Gotchas
 
-| Date | Decision | Reason |
-|------|----------|--------|
-| — | Groq llama-3.3-70b-versatile as LLM | Free tier, 500+ tok/sec |
-| — | Neon Postgres over SQLite | Cloud DB, JSONB support, free tier |
-| — | asyncpg over psycopg2 | FastAPI async-first, 3x faster |
-| — | LangGraph over CrewAI | Explicit state graph → snapshotable + replayable |
-| — | @xyflow/react for graph UI | Best React library for node graphs |
-| — | uv over pip/poetry | Faster, deterministic |
-| — | Raw asyncpg over SQLAlchemy | Fewer layers, faster queries |
-| — | NUMERIC(10,6) for cost | Sufficient precision for micro-dollar amounts |
+G-001: PowerShell no && — always separate lines
+G-002: Always uv run, never raw python
+G-003: Neon URL — remove -pooler and channel_binding=require
+G-004: Never commit .env
+G-005: Run uv run ruff check --fix before every commit
+G-006: asyncpg needs plain postgresql:// not postgresql+asyncpg://
+G-007: CREATE TABLE IF NOT EXISTS won't add new columns — use ALTER TABLE ADD COLUMN IF NOT EXISTS
+G-008: INGEST_URL must use 127.0.0.1 not localhost on Windows
+G-009: Render free tier sleeps — cron job pings /health every 14 mins
+G-010: FastAPI Depends()/Security() triggers ruff B008 — add # noqa: B008
+G-011: After uv add, run uv export --no-hashes --format requirements-txt > requirements.txt
+G-012: FastAPI dependency_overrides must be used in tests, not unittest.mock.patch
+G-013: Groq deprecated llama-3.3-70b-versatile on 08/16/26 — replaced with qwen/qwen3.6-27b
+G-014: TraceDiff Compare button must use parentTraceId not traceId when current trace is a fork
+G-015: New Reddit accounts get auto-removed from strict subreddits — build karma first
+G-016: HN rate limits fast posting — space comments 5 mins apart on new accounts
+G-017: React Flow attribution badge is white rectangle bottom-left — fix with proOptions={{ hideAttribution: true }}
+G-018: LLM-as-judge scores FAIL but trace status shows SUCCESS — /complete endpoint sets status independently of judge scores
 
 ---
 
 ## Resume Bullet Points
 
-- Built **SwarmTrace**, an OpenTelemetry-compatible multi-agent observability platform with time-travel state replay — the only open-source tool that lets engineers fork execution from any past agent step and replay only downstream agents without re-running the full pipeline
-- Implemented **cost tracking per span** using Groq token pricing ($0.59/M input, $0.79/M output) — each trace shows exact USD cost, enabling prompt optimization decisions ("this change saves $30/day at scale")
-- Built **trace diff view** — side-by-side comparison of original vs forked runs showing latency delta, cost delta, and output changes per agent
-- Rendered multi-agent execution trees as **interactive hierarchical graphs** using React Flow with per-node latency, token usage, and cost overlays
-- Processed trace ingestion with **<150ms overhead** using async FastAPI + asyncpg pipeline with Neon Postgres JSONB storage
-- Deployed full-stack: **FastAPI on Render, React on Vercel, Neon Postgres** — 18/18 tests passing, ruff clean
+- Built SwarmTrace, an OpenTelemetry-compatible multi-agent observability platform with time-travel state replay — the only open-source tool that lets engineers fork execution from any past agent step
+- Implemented full RBAC (admin/developer/viewer) with project_members table and FastAPI dependency factories
+- Built audit log system (ISO 27001 compliant) with fire-and-forget log_action helper across all write endpoints
+- Added OTLP export endpoint compatible with Jaeger, Grafana Tempo, Datadog — converts internal span format to standard OTLP JSON
+- Built PyPI SDK (pip install swarmtrace) with sync/async context managers and decorator API
+- Implemented WebSocket live streaming — span tree updates in real time as agents run
+- Built Stripe-ready billing infrastructure with free/pro/enterprise plan definitions and usage tracking
+- Deployed full-stack: FastAPI on Render, React on Vercel, Neon Postgres — 17/17 tests passing, 32 endpoints
+- Launched on ProductHunt, Reddit (r/LangChain 9 upvotes 2.4K views), LinkedIn, YouTube
